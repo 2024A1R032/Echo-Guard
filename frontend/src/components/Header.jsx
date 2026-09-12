@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useTelemetry } from '../context/TelemetryContext';
-import { Shield, Radio, Volume2, VolumeX, Activity, Cpu, Bell } from 'lucide-react';
+import { Shield, Radio, Volume2, VolumeX, Activity, Cpu, Bell, FlaskConical, Network } from 'lucide-react';
 
 export default function Header({ activeTab, setActiveTab, onOpenDispatch }) {
   const { wsConnected, backendOnline, allAlerts, audioEnabled, setAudioEnabled, nodes, testAlarmSound, triggerSimulationAlert } = useTelemetry();
@@ -47,11 +47,26 @@ export default function Header({ activeTab, setActiveTab, onOpenDispatch }) {
           <span>Tactical Radar</span>
         </button>
         <button
+          className={`nav-tab-btn ${activeTab === 'sandbox' ? 'active' : ''}`}
+          onClick={() => setActiveTab('sandbox')}
+          style={{ borderColor: activeTab === 'sandbox' ? 'var(--accent-cyan)' : undefined }}
+        >
+          <FlaskConical size={16} />
+          <span>Verification Sandbox</span>
+        </button>
+        <button
+          className={`nav-tab-btn ${activeTab === 'clusters' ? 'active' : ''}`}
+          onClick={() => setActiveTab('clusters')}
+        >
+          <Network size={16} />
+          <span>Incident Fusion</span>
+        </button>
+        <button
           className={`nav-tab-btn ${activeTab === 'vector-search' ? 'active' : ''}`}
           onClick={() => setActiveTab('vector-search')}
         >
           <Cpu size={16} />
-          <span>Acoustic Vector Search</span>
+          <span>Acoustic Vectors</span>
         </button>
         <button
           className={`nav-tab-btn ${activeTab === 'swarm' ? 'active' : ''}`}

@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.api.routes import alerts, reports
+from app.api.routes import alerts, reports, incidents
 from app.core.config import settings
 
 app = FastAPI(
@@ -37,6 +37,13 @@ app.include_router(
     reports.router,
     prefix=f"{settings.API_V1_STR}/reports",
     tags=["reports"]
+)
+
+# Spatial-Temporal Incident Clusters & Forensics
+app.include_router(
+    incidents.router,
+    prefix=f"{settings.API_V1_STR}/incidents",
+    tags=["incidents"]
 )
 
 @app.get("/health")

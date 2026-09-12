@@ -8,6 +8,8 @@ import SwarmMetrics from './components/SwarmMetrics';
 import AudioSpectrogram from './components/AudioSpectrogram';
 import QuickDispatchModal from './components/QuickDispatchModal';
 import InspectEmbeddingModal from './components/InspectEmbeddingModal';
+import VerificationSandbox from './components/VerificationSandbox';
+import IncidentClustersView from './components/IncidentClustersView';
 import { ShieldAlert, Activity, Radio, Cpu } from 'lucide-react';
 
 function DashboardContent() {
@@ -85,6 +87,14 @@ function DashboardContent() {
               <AlertFeed onInspectEmbedding={(alert) => setInspectAlert(alert)} />
             </div>
           </div>
+        )}
+
+        {activeTab === 'sandbox' && (
+          <VerificationSandbox />
+        )}
+
+        {activeTab === 'clusters' && (
+          <IncidentClustersView />
         )}
 
         {activeTab === 'vector-search' && (

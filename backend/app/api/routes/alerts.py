@@ -13,6 +13,8 @@ from app.schemas.payload import (
     ThreatAlertSearchResult
 )
 from app.services.inference import analyze_threat_signature, generate_synthetic_acoustic_embedding
+from app.services.clustering import cluster_manager
+from app.services.forensics import analyze_acoustic_forensics
 
 router = APIRouter()
 
@@ -71,10 +73,25 @@ async def create_telemetry_alert(
     db.add(new_alert)
     await db.commit()
     await db.refresh(new_alert)
+
+    # 4. Multi-Sensor Spatial-Temporal Fusion & Deduplication
+    alert_dict = {
+        "id": str(new_alert.id),
+        "device_id": new_alert.device_id,
+        "threat_type": new_alert.threat_type,
+        "latitude": new_alert.latitude,
+        "longitude": new_alert.longitude,
+        "confidence_score": new_alert.confidence_score,
+        "timestamp": new_alert.timestamp.isoformat()
+    }
+    cluster = cluster_manager.process_alert(alert_dict)
+    forensics = analyze_acoustic_forensics(new_alert.threat_type, new_alert.confidence_score, embedding)
     
-    # 4. Broadcast to live connected clients/dashboards
+    # 5. Broadcast to live connected clients/dashboards
     alert_response = ThreatAlertResponse.model_validate(new_alert)
     broadcast_data = json.loads(alert_response.model_dump_json())
+    broadcast_data["cluster"] = cluster
+    broadcast_data["forensics"] = forensics
     await manager.broadcast_alert(broadcast_data)
 
     return new_alert
