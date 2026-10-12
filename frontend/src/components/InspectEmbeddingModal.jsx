@@ -1,5 +1,6 @@
 import React from 'react';
 import { X, Cpu, Copy, Check } from 'lucide-react';
+import { threatLabel } from '../utils/threat';
 
 export default function InspectEmbeddingModal({ alert, onClose }) {
   const [copied, setCopied] = React.useState(false);
@@ -21,8 +22,8 @@ export default function InspectEmbeddingModal({ alert, onClose }) {
           <div className="panel-title-wrapper">
             <Cpu size={18} color="var(--accent-purple)" />
             <div>
-              <div className="panel-title">128-D Acoustic Vector Embedding</div>
-              <div className="panel-subtitle">{alert.threat_type} • {alert.device_id}</div>
+              <div className="panel-title">Sound fingerprint</div>
+              <div className="panel-subtitle">{threatLabel(alert.threat_type)} · {alert.device_id}</div>
             </div>
           </div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
@@ -46,7 +47,7 @@ export default function InspectEmbeddingModal({ alert, onClose }) {
           </div>
 
           {/* Visual Embedding Heatmap Bar */}
-          <div style={{ display: 'flex', gap: '2px', height: '28px', background: '#f1f5f9', padding: '4px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)', overflowX: 'auto' }}>
+          <div style={{ display: 'flex', gap: '2px', height: '28px', background: '#eaeee8', padding: '4px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)', overflowX: 'auto' }}>
             {embedding.slice(0, 128).map((val, idx) => {
               // Map -1..1 to intensity
               const intensity = Math.min(1, Math.max(0, (val + 1) / 2));
@@ -60,7 +61,7 @@ export default function InspectEmbeddingModal({ alert, onClose }) {
                   style={{
                     flex: '1 0 3px',
                     height: '100%',
-                    backgroundColor: `rgba(124, 58, 237, ${Math.max(0.15, intensity)})`,
+                    backgroundColor: `rgba(91, 106, 154, ${Math.max(0.15, intensity)})`,
                     borderRadius: '1px',
                   }}
                 />
@@ -73,7 +74,7 @@ export default function InspectEmbeddingModal({ alert, onClose }) {
             style={{
               maxHeight: '220px',
               overflowY: 'auto',
-              background: '#0f172a',
+              background: '#16241b',
               padding: '0.85rem',
               borderRadius: 'var(--radius-sm)',
               fontFamily: 'var(--font-mono)',

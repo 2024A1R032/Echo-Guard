@@ -12,6 +12,14 @@ env/
 .coverage
 htmlcov/
 *.sqlite3
+.env
+*.env
+backend/.env
+backend/data/
+data/
+backend/ml_models/
+ml_models/
+backend/error.txt
 
 # Node / Frontend
 frontend/node_modules/

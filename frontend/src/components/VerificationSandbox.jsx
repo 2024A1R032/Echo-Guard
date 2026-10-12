@@ -109,21 +109,21 @@ export default function VerificationSandbox() {
       <div className="glass-panel" style={{ padding: '1.25rem 1.5rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
-            <div className="stat-icon-wrapper" style={{ background: 'rgba(2, 132, 199, 0.1)', color: 'var(--accent-cyan)' }}>
+            <div className="stat-icon-wrapper" style={{ background: 'rgba(31, 90, 58, 0.1)', color: 'var(--accent-cyan)' }}>
               <FlaskConical size={24} />
             </div>
             <div>
               <h2 style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
-                Instructor Acoustic Forensics & Verification Sandbox
+                Audio verification
               </h2>
               <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: '0.2rem 0 0 0' }}>
-                Scientifically test, inspect, and verify the physical bioacoustic engine and explainable AI (XAI) reason chain.
+                Play a sample sound through the classifier and see the measurements behind its decision.
               </p>
             </div>
           </div>
-          <div className="status-pill" style={{ color: 'var(--accent-emerald)', borderColor: 'rgba(5, 150, 105, 0.3)' }}>
+          <div className="status-pill" style={{ color: 'var(--accent-emerald)', borderColor: 'rgba(46, 125, 79, 0.3)' }}>
             <ShieldCheck size={14} />
-            <span>SCIENTIFIC VERIFICATION MODE</span>
+            <span>Test mode</span>
           </div>
         </div>
       </div>
@@ -134,7 +134,7 @@ export default function VerificationSandbox() {
           <div className="panel-header" style={{ marginBottom: '1rem', paddingBottom: '0.6rem' }}>
             <div className="panel-title-wrapper">
               <Activity size={18} color="var(--accent-cyan)" />
-              <div className="panel-title">Select Test Bioacoustic Sound Profile</div>
+              <div className="panel-title">Choose a sample sound</div>
             </div>
           </div>
 
@@ -161,14 +161,14 @@ export default function VerificationSandbox() {
                       {sample.name}
                     </span>
                     <span className={`threat-tag ${isThreat ? 'CHAINSAW' : 'WILDLIFE'}`} style={{ fontSize: '0.62rem' }}>
-                      {sample.category}
+                      {sample.category === 'THREAT' ? 'Threat' : 'Safe'}
                     </span>
                   </div>
                   <p style={{ fontSize: '0.74rem', color: 'var(--text-muted)', margin: '0 0 0.4rem 0' }}>
                     {sample.description}
                   </p>
                   <div style={{ display: 'flex', gap: '1.2rem', fontSize: '0.72rem', fontFamily: 'var(--font-mono)', color: 'var(--text-secondary)' }}>
-                    <span>Target $f_0$: {sample.f0Expected}</span>
+                    <span>Fundamental: {sample.f0Expected}</span>
                     <span>Harmonics: {sample.harmonicsCount}</span>
                   </div>
                 </div>
@@ -201,7 +201,7 @@ export default function VerificationSandbox() {
                 style={{ flex: 1, padding: '0.55rem' }}
               >
                 <Zap size={16} />
-                <span>{analyzing ? 'Computing Physics Breakdown...' : 'Run Forensic Proof'}</span>
+                <span>{analyzing ? 'Analyzing…' : 'Analyze sound'}</span>
               </button>
 
               <button
@@ -209,7 +209,7 @@ export default function VerificationSandbox() {
                 onClick={handlePlayAndInject}
                 style={{
                   padding: '0.55rem 0.9rem',
-                  background: isPlayingSound ? 'rgba(2, 132, 199, 0.15)' : undefined,
+                  background: isPlayingSound ? 'rgba(31, 90, 58, 0.15)' : undefined,
                   borderColor: isPlayingSound ? 'var(--accent-cyan)' : undefined,
                 }}
                 title="Synthesize audio frequency and inject live onto radar grid"
@@ -226,16 +226,16 @@ export default function VerificationSandbox() {
           <div className="panel-header" style={{ marginBottom: '1rem', paddingBottom: '0.6rem' }}>
             <div className="panel-title-wrapper">
               <Info size={18} color="var(--accent-cyan)" />
-              <div className="panel-title">Acoustic Physics & Verification Evidence</div>
+              <div className="panel-title">Evidence behind the result</div>
             </div>
           </div>
 
           {!forensicResult ? (
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', color: 'var(--text-muted)', padding: '2rem' }}>
               <FlaskConical size={36} style={{ marginBottom: '0.75rem', opacity: 0.5 }} />
-              <p style={{ fontWeight: 600, fontSize: '0.85rem' }}>No Diagnostic Run Yet</p>
+              <p style={{ fontWeight: 600, fontSize: '0.85rem' }}>Nothing analyzed yet</p>
               <p style={{ fontSize: '0.75rem', maxWidth: '320px' }}>
-                Select a test profile on the left and click <strong>"Run Forensic Proof"</strong> to generate the scientific physics verification breakdown.
+                Choose a sample on the left, then select <strong>“Analyze sound”</strong> to see the measurements.
               </p>
             </div>
           ) : (
@@ -245,17 +245,17 @@ export default function VerificationSandbox() {
                 style={{
                   padding: '0.85rem 1rem',
                   borderRadius: 'var(--radius-sm)',
-                  background: selectedSample.category === 'THREAT' ? '#fee2e2' : '#d1fae5',
-                  border: `1px solid ${selectedSample.category === 'THREAT' ? 'rgba(225, 29, 72, 0.3)' : 'rgba(5, 150, 105, 0.3)'}`,
+                  background: selectedSample.category === 'THREAT' ? '#f8dedb' : '#d1fae5',
+                  border: `1px solid ${selectedSample.category === 'THREAT' ? 'rgba(204, 58, 33, 0.3)' : 'rgba(46, 125, 79, 0.3)'}`,
                   display: 'flex',
                   alignItems: 'center',
                   gap: '0.75rem',
                 }}
               >
                 {selectedSample.category === 'THREAT' ? (
-                  <AlertOctagon size={22} color="#e11d48" />
+                  <AlertOctagon size={22} color="#cc3a21" />
                 ) : (
-                  <CheckCircle2 size={22} color="#059669" />
+                  <CheckCircle2 size={22} color="#2e7d4f" />
                 )}
                 <div>
                   <div style={{ fontSize: '0.85rem', fontWeight: 800, color: selectedSample.category === 'THREAT' ? '#be123c' : '#047857' }}>
@@ -269,29 +269,29 @@ export default function VerificationSandbox() {
 
               {/* Physical Parameters Grid */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.65rem' }}>
-                <div style={{ padding: '0.65rem', background: '#f8fafc', borderRadius: 'var(--radius-sm)', border: '1px solid #e2e8f0' }}>
-                  <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 700 }}>FUNDAMENTAL FREQUENCY ($f_0$)</div>
+                <div style={{ padding: '0.65rem', background: '#f8faf7', borderRadius: 'var(--radius-sm)', border: '1px solid #dce2db' }}>
+                  <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 700 }}>Fundamental frequency</div>
                   <div style={{ fontSize: '1rem', fontWeight: 800, fontFamily: 'var(--font-mono)', color: 'var(--accent-cyan)' }}>
                     {forensicResult.fundamental_frequency_hz} Hz
                   </div>
                 </div>
 
-                <div style={{ padding: '0.65rem', background: '#f8fafc', borderRadius: 'var(--radius-sm)', border: '1px solid #e2e8f0' }}>
-                  <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 700 }}>TRANSIENT RISE TIME</div>
+                <div style={{ padding: '0.65rem', background: '#f8faf7', borderRadius: 'var(--radius-sm)', border: '1px solid #dce2db' }}>
+                  <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 700 }}>Rise time</div>
                   <div style={{ fontSize: '1rem', fontWeight: 800, fontFamily: 'var(--font-mono)', color: 'var(--accent-blue)' }}>
                     {forensicResult.rise_time_ms} ms
                   </div>
                 </div>
 
-                <div style={{ padding: '0.65rem', background: '#f8fafc', borderRadius: 'var(--radius-sm)', border: '1px solid #e2e8f0' }}>
-                  <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 700 }}>SPECTRAL FLATNESS</div>
+                <div style={{ padding: '0.65rem', background: '#f8faf7', borderRadius: 'var(--radius-sm)', border: '1px solid #dce2db' }}>
+                  <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 700 }}>Spectral flatness</div>
                   <div style={{ fontSize: '1rem', fontWeight: 800, fontFamily: 'var(--font-mono)', color: 'var(--accent-emerald)' }}>
                     {forensicResult.spectral_flatness}
                   </div>
                 </div>
 
-                <div style={{ padding: '0.65rem', background: '#f8fafc', borderRadius: 'var(--radius-sm)', border: '1px solid #e2e8f0' }}>
-                  <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 700 }}>HARMONIC-TO-NOISE RATIO</div>
+                <div style={{ padding: '0.65rem', background: '#f8faf7', borderRadius: 'var(--radius-sm)', border: '1px solid #dce2db' }}>
+                  <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 700 }}>Harmonic-to-noise ratio</div>
                   <div style={{ fontSize: '1rem', fontWeight: 800, fontFamily: 'var(--font-mono)', color: 'var(--accent-amber)' }}>
                     {forensicResult.harmonic_to_noise_ratio_db} dB
                   </div>

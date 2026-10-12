@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useTelemetry } from '../context/TelemetryContext';
 import { X, Bell, Zap, ShieldAlert } from 'lucide-react';
+import { threatLabel } from '../utils/threat';
 
 export default function QuickDispatchModal({ isOpen, onClose }) {
   const { nodes, triggerSimulationAlert } = useTelemetry();
@@ -25,7 +26,7 @@ export default function QuickDispatchModal({ isOpen, onClose }) {
     setSuccessMsg('');
     try {
       await triggerSimulationAlert(selectedThreat, selectedNodeId, confidence);
-      setSuccessMsg(`Incident successfully broadcast to live telemetry grid!`);
+      setSuccessMsg(`Alert sent. It now appears in the live feed.`);
       setTimeout(() => {
         onClose();
       }, 1200);
@@ -42,7 +43,7 @@ export default function QuickDispatchModal({ isOpen, onClose }) {
         <div className="panel-header">
           <div className="panel-title-wrapper">
             <Bell size={18} color="var(--accent-cyan)" />
-            <div className="panel-title">Simulate Bioacoustic Incident</div>
+            <div className="panel-title">Simulate an incident</div>
           </div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
             <X size={18} />
@@ -53,7 +54,7 @@ export default function QuickDispatchModal({ isOpen, onClose }) {
           {/* Threat Selection */}
           <div>
             <label style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-secondary)', display: 'block', marginBottom: '0.5rem' }}>
-              THREAT SIGNATURE TYPE
+              Threat type
             </label>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '0.5rem' }}>
               {threats.map((t) => (
@@ -78,8 +79,8 @@ export default function QuickDispatchModal({ isOpen, onClose }) {
                     </div>
                     <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{t.desc}</div>
                   </div>
-                  <span className={`threat-tag ${t.type}`} style={{ fontSize: '0.62rem' }}>
-                    {t.type}
+                  <span className={`threat-tag ${t.type}`} style={{ fontSize: '0.75rem' }}>
+                    {threatLabel(t.type)}
                   </span>
                 </div>
               ))}
@@ -90,7 +91,7 @@ export default function QuickDispatchModal({ isOpen, onClose }) {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
             <div>
               <label style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-secondary)', display: 'block', marginBottom: '0.4rem' }}>
-                TARGET SENSOR NODE
+                Sensor
               </label>
               <select
                 value={selectedNodeId}
@@ -117,7 +118,7 @@ export default function QuickDispatchModal({ isOpen, onClose }) {
 
             <div>
               <label style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-secondary)', display: 'block', marginBottom: '0.4rem' }}>
-                CONFIDENCE: {(confidence * 100).toFixed(0)}%
+                Confidence: {(confidence * 100).toFixed(0)}%
               </label>
               <input
                 type="range"
@@ -132,7 +133,7 @@ export default function QuickDispatchModal({ isOpen, onClose }) {
           </div>
 
           {successMsg && (
-            <div style={{ padding: '0.75rem', background: '#d1fae5', border: '1px solid rgba(5, 150, 105, 0.3)', borderRadius: 'var(--radius-sm)', color: 'var(--accent-emerald)', fontSize: '0.8rem', fontWeight: 700, textAlign: 'center' }}>
+            <div style={{ padding: '0.75rem', background: '#d1fae5', border: '1px solid rgba(46, 125, 79, 0.3)', borderRadius: 'var(--radius-sm)', color: 'var(--accent-emerald)', fontSize: '0.8rem', fontWeight: 700, textAlign: 'center' }}>
               {successMsg}
             </div>
           )}
@@ -143,7 +144,7 @@ export default function QuickDispatchModal({ isOpen, onClose }) {
             </button>
             <button className="btn-primary" onClick={handleDispatch} disabled={sending}>
               <Zap size={15} />
-              <span>{sending ? 'Injecting Telemetry...' : 'Inject Alert'}</span>
+              <span>{sending ? 'Sending alert…' : 'Send alert'}</span>
             </button>
           </div>
         </div>

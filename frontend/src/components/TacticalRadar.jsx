@@ -41,14 +41,14 @@ export default function TacticalRadar() {
         <div className="panel-title-wrapper">
           <Radio size={18} color="var(--accent-cyan)" />
           <div>
-            <div className="panel-title">Tactical Bioacoustic Radar & Geospatial Grid</div>
-            <div className="panel-subtitle">Amazon Conservation Sector 4B • Live Hydro/Acoustic Transducers</div>
+            <div className="panel-title">Sensor radar</div>
+            <div className="panel-subtitle">Sanctuary sector 4B · live sensor positions</div>
           </div>
         </div>
 
         <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center' }}>
-          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
-            GRID: -3.465° N / -62.215° W
+          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', whiteSpace: 'nowrap' }}>
+            -3.465° N, -62.215° W
           </span>
           {selectedNode && (
             <button 
@@ -56,7 +56,7 @@ export default function TacticalRadar() {
               style={{ fontSize: '0.72rem', padding: '0.25rem 0.55rem' }}
               onClick={() => setSelectedNode(null)}
             >
-              Reset View
+              Reset view
             </button>
           )}
         </div>
@@ -74,37 +74,37 @@ export default function TacticalRadar() {
           <defs>
             {/* Pulsing Threat Glow Animation */}
             <radialGradient id="threatGlowRed" cx="50%" cy="50%" r="50%">
-              <stop offset="0%" stopColor="#e11d48" stopOpacity="0.7" />
-              <stop offset="50%" stopColor="#e11d48" stopOpacity="0.3" />
-              <stop offset="100%" stopColor="#e11d48" stopOpacity="0" />
+              <stop offset="0%" stopColor="#cc3a21" stopOpacity="0.7" />
+              <stop offset="50%" stopColor="#cc3a21" stopOpacity="0.3" />
+              <stop offset="100%" stopColor="#cc3a21" stopOpacity="0" />
             </radialGradient>
             <radialGradient id="threatGlowAmber" cx="50%" cy="50%" r="50%">
-              <stop offset="0%" stopColor="#d97706" stopOpacity="0.7" />
-              <stop offset="50%" stopColor="#d97706" stopOpacity="0.3" />
-              <stop offset="100%" stopColor="#d97706" stopOpacity="0" />
+              <stop offset="0%" stopColor="#a8660f" stopOpacity="0.7" />
+              <stop offset="50%" stopColor="#a8660f" stopOpacity="0.3" />
+              <stop offset="100%" stopColor="#a8660f" stopOpacity="0" />
             </radialGradient>
           </defs>
 
           {/* Concentric Radar Distance Rings */}
-          <circle cx="290" cy="230" r="60" fill="none" stroke="rgba(2, 132, 199, 0.15)" strokeWidth="1" strokeDasharray="3 3" />
-          <circle cx="290" cy="230" r="120" fill="none" stroke="rgba(2, 132, 199, 0.2)" strokeWidth="1" />
-          <circle cx="290" cy="230" r="180" fill="none" stroke="rgba(2, 132, 199, 0.15)" strokeWidth="1" strokeDasharray="4 4" />
-          <circle cx="290" cy="230" r="215" fill="none" stroke="rgba(2, 132, 199, 0.25)" strokeWidth="1.5" />
+          <circle cx="290" cy="230" r="60" fill="none" stroke="rgba(31, 90, 58, 0.15)" strokeWidth="1" strokeDasharray="3 3" />
+          <circle cx="290" cy="230" r="120" fill="none" stroke="rgba(31, 90, 58, 0.2)" strokeWidth="1" />
+          <circle cx="290" cy="230" r="180" fill="none" stroke="rgba(31, 90, 58, 0.15)" strokeWidth="1" strokeDasharray="4 4" />
+          <circle cx="290" cy="230" r="215" fill="none" stroke="rgba(31, 90, 58, 0.25)" strokeWidth="1.5" />
 
           {/* Crosshair Lines */}
-          <line x1="75" y1="230" x2="505" y2="230" stroke="rgba(2, 132, 199, 0.15)" strokeWidth="1" />
-          <line x1="290" y1="15" x2="290" y2="445" stroke="rgba(2, 132, 199, 0.15)" strokeWidth="1" />
+          <line x1="75" y1="230" x2="505" y2="230" stroke="rgba(31, 90, 58, 0.15)" strokeWidth="1" />
+          <line x1="290" y1="15" x2="290" y2="445" stroke="rgba(31, 90, 58, 0.15)" strokeWidth="1" />
 
           {/* Range Labels */}
-          <text x="355" y="224" fill="#0284c7" fontSize="9" fontWeight="600" fontFamily="var(--font-mono)">1.0 KM</text>
-          <text x="415" y="224" fill="#0284c7" fontSize="9" fontWeight="600" fontFamily="var(--font-mono)">2.0 KM</text>
-          <text x="475" y="224" fill="#0284c7" fontSize="9" fontWeight="600" fontFamily="var(--font-mono)">3.0 KM</text>
+          <text x="355" y="224" fill="#1f5a3a" fontSize="9" fontWeight="600" fontFamily="var(--font-mono)">1 km</text>
+          <text x="415" y="224" fill="#1f5a3a" fontSize="9" fontWeight="600" fontFamily="var(--font-mono)">2 km</text>
+          <text x="475" y="224" fill="#1f5a3a" fontSize="9" fontWeight="600" fontFamily="var(--font-mono)">3 km</text>
 
           {/* Active Threat Shockwave Rings */}
           {pulseThreats.map((threat, idx) => {
             const coords = getScreenCoords(threat.latitude || centerLat, threat.longitude || centerLon);
             const isCritical = threat.threat_type === 'CHAINSAW' || threat.threat_type === 'GUNSHOT' || threat.threat_type === 'BLAST_FISHING';
-            const color = isCritical ? '#e11d48' : '#0284c7';
+            const color = isCritical ? '#cc3a21' : '#1f5a3a';
 
             return (
               <g key={`pulse-${threat.id || idx}`}>
@@ -159,8 +159,8 @@ export default function TacticalRadar() {
                   cx={x}
                   cy={y}
                   r={isSelected ? 16 : 11}
-                  fill={hasRecentThreat ? 'rgba(225, 29, 72, 0.15)' : 'rgba(2, 132, 199, 0.12)'}
-                  stroke={hasRecentThreat ? '#e11d48' : '#0284c7'}
+                  fill={hasRecentThreat ? 'rgba(204, 58, 33, 0.15)' : 'rgba(31, 90, 58, 0.12)'}
+                  stroke={hasRecentThreat ? '#cc3a21' : '#1f5a3a'}
                   strokeWidth={isSelected ? 2.5 : 1.5}
                 />
                 {/* Node center point */}
@@ -168,7 +168,7 @@ export default function TacticalRadar() {
                   cx={x}
                   cy={y}
                   r={isSelected ? 6 : 4}
-                  fill={hasRecentThreat ? '#e11d48' : '#059669'}
+                  fill={hasRecentThreat ? '#cc3a21' : '#2e7d4f'}
                 />
                 {/* Node Label Tag */}
                 <rect
@@ -178,15 +178,15 @@ export default function TacticalRadar() {
                   height="18"
                   rx="4"
                   fill="#ffffff"
-                  stroke={isSelected ? '#0284c7' : '#cbd5e1'}
+                  stroke={isSelected ? '#1f5a3a' : '#c4cdc5'}
                   strokeWidth={isSelected ? '1.5' : '1'}
-                  filter="drop-shadow(0 1px 2px rgba(15, 23, 42, 0.08))"
+                  filter="drop-shadow(0 1px 2px rgba(22, 36, 27, 0.08))"
                 />
                 <text
                   x={x}
                   y={y + 26}
                   textAnchor="middle"
-                  fill={isSelected ? '#0284c7' : '#0f172a'}
+                  fill={isSelected ? '#1f5a3a' : '#16241b'}
                   fontSize="8.5"
                   fontWeight="700"
                   fontFamily="var(--font-mono)"
@@ -211,7 +211,7 @@ export default function TacticalRadar() {
               borderRadius: 'var(--radius-md)',
               padding: '0.9rem 1.2rem',
               minWidth: '240px',
-              boxShadow: '0 10px 25px -5px rgba(15, 23, 42, 0.1)',
+              boxShadow: '0 10px 25px -5px rgba(22, 36, 27, 0.1)',
               zIndex: 10,
             }}
           >

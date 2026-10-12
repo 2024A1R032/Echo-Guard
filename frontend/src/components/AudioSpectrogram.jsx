@@ -1,6 +1,7 @@
 import React, { useRef, useEffect } from 'react';
 import { useTelemetry } from '../context/TelemetryContext';
 import { Activity, Waves } from 'lucide-react';
+import { threatLabel } from '../utils/threat';
 
 export default function AudioSpectrogram() {
   const { activeThreats } = useTelemetry();
@@ -21,7 +22,7 @@ export default function AudioSpectrogram() {
       const centerY = height / 2;
 
       // Clean Light Background Grid Lines
-      ctx.strokeStyle = '#e2e8f0';
+      ctx.strokeStyle = '#dce2db';
       ctx.lineWidth = 1;
       for (let x = 0; x < width; x += 25) {
         ctx.beginPath();
@@ -41,16 +42,16 @@ export default function AudioSpectrogram() {
       const latestType = hasRecentThreat ? activeThreats[0].threat_type : 'AMBIENT';
 
       let baseAmplitude = hasRecentThreat ? 28 : 8;
-      let waveColor = '#0284c7';
-      if (latestType === 'CHAINSAW' || latestType === 'GUNSHOT') waveColor = '#e11d48';
-      if (latestType === 'BLAST_FISHING') waveColor = '#c026d3';
-      if (latestType === 'ILLEGAL_VESSEL') waveColor = '#0891b2';
+      let waveColor = '#1f5a3a';
+      if (latestType === 'CHAINSAW' || latestType === 'GUNSHOT') waveColor = '#cc3a21';
+      if (latestType === 'BLAST_FISHING') waveColor = '#8a3a5c';
+      if (latestType === 'ILLEGAL_VESSEL') waveColor = '#1f5a3a';
 
       // Draw Multi-Layer Bioacoustic Harmonic Waveforms
       [
         { freq: 0.02, amp: baseAmplitude, color: waveColor, alpha: 0.9, width: 2.2 },
         { freq: 0.04, amp: baseAmplitude * 0.6, color: waveColor, alpha: 0.45, width: 1.5 },
-        { freq: 0.015, amp: baseAmplitude * 1.2, color: '#2563eb', alpha: 0.35, width: 1.2 },
+        { freq: 0.015, amp: baseAmplitude * 1.2, color: '#1d6a8c', alpha: 0.35, width: 1.2 },
       ].forEach((wave) => {
         ctx.beginPath();
         ctx.strokeStyle = wave.color;
@@ -84,10 +85,10 @@ export default function AudioSpectrogram() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
           <Waves size={16} color="var(--accent-cyan)" />
-          <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)' }}>Bioacoustic DSP Oscilloscope</span>
+          <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)' }}>Audio signal</span>
         </div>
         <span className={`threat-tag ${latestThreat ? latestThreat.threat_type : 'UNKNOWN'}`} style={{ fontSize: '0.65rem' }}>
-          {latestThreat ? `${latestThreat.threat_type} HARMONICS` : 'AMBIENT CANOPY NOISE'}
+          {latestThreat ? `${threatLabel(latestThreat.threat_type)} pattern` : 'Ambient forest noise'}
         </span>
       </div>
 

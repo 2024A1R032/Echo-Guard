@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.api.routes import alerts, reports, incidents
+from app.api.routes import alerts, reports, incidents, audio, simulation
 from app.core.config import settings
 
 app = FastAPI(
@@ -44,6 +44,18 @@ app.include_router(
     incidents.router,
     prefix=f"{settings.API_V1_STR}/incidents",
     tags=["incidents"]
+)
+
+# Real Audio Classification ML Pipeline
+app.include_router(
+    audio.router,
+    tags=["audio"]
+)
+
+# Live Field Simulation Demo
+app.include_router(
+    simulation.router,
+    tags=["simulation"]
 )
 
 @app.get("/health")

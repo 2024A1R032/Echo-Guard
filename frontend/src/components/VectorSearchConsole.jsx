@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { searchAcousticThreats } from '../services/api';
 import { Cpu, Search, Sparkles, Database, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { threatLabel } from '../utils/threat';
 
 const PRESET_SIGNATURES = [
   {
@@ -73,16 +74,16 @@ export default function VectorSearchConsole() {
       {/* Left Search Configuration Panel */}
       <div className="glass-panel" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
         <div className="panel-title-wrapper">
-          <Cpu size={20} color="var(--accent-purple)" />
+          <Cpu size={20} color="var(--accent-cyan)" />
           <div>
-            <div className="panel-title">pgvector Acoustic Similarity Search</div>
-            <div className="panel-subtitle">128-Dimensional Cosine Distance Metric</div>
+            <div className="panel-title">Similar sound search</div>
+            <div className="panel-subtitle">Compares each sound’s 128-value fingerprint</div>
           </div>
         </div>
 
         <div>
           <label style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-secondary)', display: 'block', marginBottom: '0.5rem' }}>
-            SELECT TARGET BIOACOUSTIC SIGNATURE
+            Choose a sound to search for
           </label>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
             {PRESET_SIGNATURES.map((preset) => {
@@ -94,19 +95,19 @@ export default function VectorSearchConsole() {
                   style={{
                     padding: '0.85rem 1rem',
                     borderRadius: 'var(--radius-md)',
-                    border: isSelected ? '1px solid var(--accent-purple)' : '1px solid var(--border-subtle)',
-                    background: isSelected ? 'var(--accent-purple-light)' : '#ffffff',
+                    border: isSelected ? '1px solid var(--accent-cyan)' : '1px solid var(--border-subtle)',
+                    background: isSelected ? 'var(--accent-cyan-light)' : '#ffffff',
                     cursor: 'pointer',
                     transition: 'all 0.2s ease',
-                    boxShadow: isSelected ? '0 2px 8px rgba(124, 58, 237, 0.12)' : '0 1px 2px rgba(15, 23, 42, 0.03)',
+                    boxShadow: isSelected ? '0 2px 8px rgba(31, 90, 58, 0.12)' : '0 1px 2px rgba(22, 36, 27, 0.03)',
                   }}
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
-                    <span style={{ fontWeight: 700, fontSize: '0.82rem', color: isSelected ? 'var(--accent-purple)' : 'var(--text-primary)' }}>
+                    <span style={{ fontWeight: 700, fontSize: '0.82rem', color: isSelected ? 'var(--accent-cyan)' : 'var(--text-primary)' }}>
                       {preset.name}
                     </span>
-                    <span className={`threat-tag ${preset.type}`} style={{ fontSize: '0.65rem', padding: '0.15rem 0.4rem' }}>
-                      {preset.type}
+                    <span className={`threat-tag ${preset.type}`} style={{ fontSize: '0.75rem' }}>
+                      {threatLabel(preset.type)}
                     </span>
                   </div>
                   <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
@@ -121,7 +122,7 @@ export default function VectorSearchConsole() {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
             <label style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
-              TOP MATCHES (K)
+              Number of matches
             </label>
             <div style={{ display: 'flex', gap: '0.4rem', marginTop: '0.35rem' }}>
               {[3, 5, 10, 20].map((k) => (
@@ -132,7 +133,7 @@ export default function VectorSearchConsole() {
                     padding: '0.3rem 0.75rem',
                     borderRadius: '4px',
                     border: topK === k ? '1px solid var(--accent-cyan)' : '1px solid var(--border-subtle)',
-                    background: topK === k ? '#e0f2fe' : '#ffffff',
+                    background: topK === k ? '#e4efe8' : '#ffffff',
                     color: topK === k ? 'var(--accent-cyan)' : 'var(--text-secondary)',
                     fontFamily: 'var(--font-mono)',
                     fontWeight: 700,
@@ -150,10 +151,10 @@ export default function VectorSearchConsole() {
             className="btn-primary"
             onClick={handleSearch}
             disabled={loading}
-            style={{ padding: '0.65rem 1.35rem', background: 'linear-gradient(135deg, #7c3aed, #2563eb)' }}
+            style={{ padding: '0.65rem 1.35rem' }}
           >
             <Search size={16} />
-            <span>{loading ? 'Searching...' : 'Execute Vector Search'}</span>
+            <span>{loading ? 'Searching...' : 'Find similar sounds'}</span>
           </button>
         </div>
       </div>
@@ -163,23 +164,23 @@ export default function VectorSearchConsole() {
         <div className="panel-title-wrapper" style={{ marginBottom: '1rem' }}>
           <Database size={18} color="var(--accent-cyan)" />
           <div>
-            <div className="panel-title">Vector Nearest Neighbors</div>
-            <div className="panel-subtitle">Sorted by Cosine Distance (0.0 = Identical Match)</div>
+            <div className="panel-title">Closest matches</div>
+            <div className="panel-subtitle">Lower distance means a closer match (0 is identical)</div>
           </div>
         </div>
 
         {error && (
-          <div style={{ padding: '1rem', background: '#fee2e2', border: '1px solid rgba(220, 38, 38, 0.3)', borderRadius: 'var(--radius-md)', color: '#dc2626', fontSize: '0.8rem', fontWeight: 600 }}>
+          <div style={{ padding: '1rem', background: '#f8dedb', border: '1px solid rgba(220, 38, 38, 0.3)', borderRadius: 'var(--radius-md)', color: '#dc2626', fontSize: '0.8rem', fontWeight: 600 }}>
             {error}
           </div>
         )}
 
         {!results && !error && (
           <div style={{ margin: 'auto', textAlign: 'center', color: 'var(--text-muted)', padding: '3rem 1rem' }}>
-            <Sparkles size={36} style={{ margin: '0 auto 0.75rem', opacity: 0.6, color: 'var(--accent-purple)' }} />
-            <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-primary)' }}>Ready to perform vector query</div>
+            <Sparkles size={36} style={{ margin: '0 auto 0.75rem', opacity: 0.6, color: 'var(--accent-cyan)' }} />
+            <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-primary)' }}>No search yet</div>
             <div style={{ fontSize: '0.78rem', marginTop: '0.35rem' }}>
-              Select a bioacoustic preset on the left and click "Execute Vector Search".
+              Choose a sound on the left, then select “Find similar sounds”.
             </div>
           </div>
         )}
@@ -207,7 +208,7 @@ export default function VectorSearchConsole() {
                     display: 'flex',
                     flexDirection: 'column',
                     gap: '0.5rem',
-                    boxShadow: '0 1px 3px rgba(15, 23, 42, 0.04)',
+                    boxShadow: '0 1px 3px rgba(22, 36, 27, 0.04)',
                   }}
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -215,17 +216,17 @@ export default function VectorSearchConsole() {
                       <span style={{ fontSize: '0.75rem', fontWeight: 800, fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>
                         #{idx + 1}
                       </span>
-                      <span className={`threat-tag ${match.threat_type}`}>{match.threat_type}</span>
+                      <span className={`threat-tag ${match.threat_type}`}>{threatLabel(match.threat_type)}</span>
                       <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-primary)' }}>
                         {match.device_id}
                       </span>
                     </div>
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                      <span style={{ fontSize: '0.75rem', fontFamily: 'var(--font-mono)', fontWeight: 600, color: 'var(--accent-purple)' }}>
+                      <span style={{ fontSize: '0.75rem', fontFamily: 'var(--font-mono)', fontWeight: 600, color: 'var(--accent-cyan)' }}>
                         Dist: {distance.toFixed(4)}
                       </span>
-                      <span className="brand-badge" style={{ background: 'var(--accent-purple-light)', color: 'var(--accent-purple)', borderColor: 'rgba(124, 58, 237, 0.3)' }}>
+                      <span className="brand-badge" style={{ background: 'var(--accent-cyan-light)', color: 'var(--accent-cyan)', borderColor: 'rgba(91, 106, 154, 0.3)' }}>
                         {similarityScore}% MATCH
                       </span>
                     </div>
@@ -237,12 +238,12 @@ export default function VectorSearchConsole() {
                   </div>
 
                   {/* Similarity Bar */}
-                  <div style={{ height: '5px', background: '#e2e8f0', borderRadius: '3px', overflow: 'hidden' }}>
+                  <div style={{ height: '5px', background: '#dce2db', borderRadius: '3px', overflow: 'hidden' }}>
                     <div
                       style={{
                         height: '100%',
                         width: `${similarityScore}%`,
-                        background: 'linear-gradient(90deg, #7c3aed, #0284c7)',
+                        background: 'var(--accent-cyan)',
                         borderRadius: '3px',
                       }}
                     />

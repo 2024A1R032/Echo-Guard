@@ -1,6 +1,7 @@
 import React from 'react';
 import { useTelemetry } from '../context/TelemetryContext';
 import { Activity, Battery, Wifi, MapPin, AlertTriangle, ShieldCheck, Zap } from 'lucide-react';
+import { threatLabel } from '../utils/threat';
 
 export default function SwarmMetrics() {
   const { nodes, allAlerts, setSelectedNode } = useTelemetry();
@@ -58,16 +59,16 @@ export default function SwarmMetrics() {
                     {node.battery.toFixed(0)}%
                   </span>
                 </div>
-                <div style={{ height: '6px', background: '#e2e8f0', borderRadius: '3px', overflow: 'hidden' }}>
+                <div style={{ height: '6px', background: '#dce2db', borderRadius: '3px', overflow: 'hidden' }}>
                   <div style={{ height: '100%', width: `${node.battery}%`, background: batteryColor, borderRadius: '3px' }} />
                 </div>
               </div>
 
               {node.lastDetection && (
                 <div style={{ marginTop: '0.75rem', paddingTop: '0.5rem', borderTop: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.72rem' }}>
-                  <span style={{ color: 'var(--text-muted)' }}>Last Acoustic Hit:</span>
-                  <span className={`threat-tag ${node.lastDetection}`} style={{ fontSize: '0.62rem', padding: '0.1rem 0.35rem' }}>
-                    {node.lastDetection}
+                  <span style={{ color: 'var(--text-muted)' }}>Last detection:</span>
+                  <span className={`threat-tag ${node.lastDetection}`} style={{ fontSize: '0.75rem' }}>
+                    {threatLabel(node.lastDetection)}
                   </span>
                 </div>
               )}
@@ -81,8 +82,8 @@ export default function SwarmMetrics() {
         <div className="panel-title-wrapper" style={{ marginBottom: '1.25rem' }}>
           <Activity size={18} color="var(--accent-cyan)" />
           <div>
-            <div className="panel-title">Acoustic Threat Category Breakdown</div>
-            <div className="panel-subtitle">Total Ingested Telemetry Incidents Across All Active Swarm Nodes</div>
+            <div className="panel-title">Alerts by threat type</div>
+            <div className="panel-subtitle">All detections reported by sensors so far</div>
           </div>
         </div>
 
@@ -100,8 +101,8 @@ export default function SwarmMetrics() {
                   textAlign: 'center',
                 }}
               >
-                <span className={`threat-tag ${type}`} style={{ fontSize: '0.68rem', marginBottom: '0.5rem' }}>
-                  {type}
+                <span className={`threat-tag ${type}`} style={{ fontSize: '0.78rem', marginBottom: '0.5rem' }}>
+                  {threatLabel(type)}
                 </span>
                 <div style={{ fontSize: '1.85rem', fontWeight: 800, fontFamily: 'var(--font-mono)', color: 'var(--text-primary)', marginTop: '0.4rem' }}>
                   {count}

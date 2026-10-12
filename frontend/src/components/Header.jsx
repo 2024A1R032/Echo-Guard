@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useTelemetry } from '../context/TelemetryContext';
-import { Shield, Radio, Volume2, VolumeX, Activity, Cpu, Bell, FlaskConical, Network } from 'lucide-react';
+import { Volume2, VolumeX, Bell, FlaskConical } from 'lucide-react';
 
-export default function Header({ activeTab, setActiveTab, onOpenDispatch }) {
-  const { wsConnected, backendOnline, allAlerts, audioEnabled, setAudioEnabled, nodes, testAlarmSound, triggerSimulationAlert } = useTelemetry();
+export default function Header({ title, description, onOpenDispatch }) {
+  const { wsConnected, audioEnabled, setAudioEnabled, testAlarmSound, triggerSimulationAlert } = useTelemetry();
   const [currentTime, setCurrentTime] = useState(new Date().toUTCString().slice(17, 25));
-  const [alarmBeeping, setAlarmBeeping] = useState(false);
+  const [testSent, setTestSent] = useState(false);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -14,111 +14,59 @@ export default function Header({ activeTab, setActiveTab, onOpenDispatch }) {
     return () => clearInterval(timer);
   }, []);
 
-  const handleQuickFakeAlarm = () => {
-    setAlarmBeeping(true);
+  const handleTestAlert = () => {
+    setTestSent(true);
     testAlarmSound();
     triggerSimulationAlert('CHAINSAW', 'NODE-ALPHA', 0.98);
-    setTimeout(() => setAlarmBeeping(false), 1500);
+    setTimeout(() => setTestSent(false), 1500);
   };
-
-  const totalThreats = allAlerts.length;
-  const activeNodesCount = nodes.filter((n) => n.battery > 10).length;
 
   return (
     <header className="app-header">
-      <div className="brand-section">
-        <div className="brand-icon-wrapper">
-          <Shield size={22} />
-        </div>
-        <div>
-          <div className="brand-title">
-            <span>ECHOGUARD</span>
-            <span className="brand-badge">DEFENSE GRID v1.0</span>
-          </div>
-        </div>
-      </div>
-
-      <div className="nav-tabs">
-        <button
-          className={`nav-tab-btn ${activeTab === 'radar' ? 'active' : ''}`}
-          onClick={() => setActiveTab('radar')}
-        >
-          <Radio size={16} />
-          <span>Tactical Radar</span>
-        </button>
-        <button
-          className={`nav-tab-btn ${activeTab === 'sandbox' ? 'active' : ''}`}
-          onClick={() => setActiveTab('sandbox')}
-          style={{ borderColor: activeTab === 'sandbox' ? 'var(--accent-cyan)' : undefined }}
-        >
-          <FlaskConical size={16} />
-          <span>Verification Sandbox</span>
-        </button>
-        <button
-          className={`nav-tab-btn ${activeTab === 'clusters' ? 'active' : ''}`}
-          onClick={() => setActiveTab('clusters')}
-        >
-          <Network size={16} />
-          <span>Incident Fusion</span>
-        </button>
-        <button
-          className={`nav-tab-btn ${activeTab === 'vector-search' ? 'active' : ''}`}
-          onClick={() => setActiveTab('vector-search')}
-        >
-          <Cpu size={16} />
-          <span>Acoustic Vectors</span>
-        </button>
-        <button
-          className={`nav-tab-btn ${activeTab === 'swarm' ? 'active' : ''}`}
-          onClick={() => setActiveTab('swarm')}
-        >
-          <Activity size={16} />
-          <span>Sensor Swarm ({activeNodesCount})</span>
-        </button>
+      <div className="topbar-title">
+        <h2>{title}</h2>
+        <p>{description}</p>
       </div>
 
       <div className="header-status-group">
         <button
-          className="btn-primary"
-          onClick={handleQuickFakeAlarm}
-          style={{
-            padding: '0.4rem 0.85rem',
-            fontSize: '0.78rem',
-            background: alarmBeeping ? 'linear-gradient(135deg, #e11d48, #be123c)' : undefined,
-            boxShadow: alarmBeeping ? '0 0 15px rgba(225, 29, 72, 0.6)' : undefined,
-            transition: 'all 0.2s ease',
-          }}
-          title="Emit a simulated alarm beep & inject threat onto radar grid"
+          type="button"
+          className="btn-secondary"
+          onClick={handleTestAlert}
+          aria-label="Send test alert"
+          title="Play the alert sound and add a test chainsaw detection"
         >
-          <Bell size={14} className={alarmBeeping ? 'animate-bounce' : ''} />
-          <span>{alarmBeeping ? '🚨 BEEPING...' : '⚡ Fake Alarm (Beep)'}</span>
+          <Bell size={15} aria-hidden="true" />
+          <span>{testSent ? 'Test alert sent' : 'Send test alert'}</span>
         </button>
 
         <button
+          type="button"
           className="btn-secondary"
           onClick={onOpenDispatch}
-          style={{ padding: '0.4rem 0.75rem', fontSize: '0.78rem' }}
+          aria-label="Simulate incident"
         >
-          <span>Configure Incident</span>
+          <FlaskConical size={15} aria-hidden="true" />
+          <span>Simulate incident</span>
         </button>
 
         <button
-          className="btn-secondary"
+          type="button"
+          className="icon-btn"
           onClick={() => setAudioEnabled(!audioEnabled)}
-          title={audioEnabled ? 'Mute Alert Audio' : 'Unmute Alert Audio'}
-          style={{ padding: '0.4rem 0.6rem' }}
+          aria-label={audioEnabled ? 'Mute alert sound' : 'Unmute alert sound'}
+          aria-pressed={!audioEnabled}
+          title={audioEnabled ? 'Mute alert sound' : 'Unmute alert sound'}
         >
-          {audioEnabled ? <Volume2 size={16} color="var(--accent-cyan)" /> : <VolumeX size={16} color="var(--text-muted)" />}
+          {audioEnabled ? <Volume2 size={16} /> : <VolumeX size={16} />}
         </button>
 
-        <div className="status-pill">
-          <div className={`status-indicator ${wsConnected ? 'online' : 'offline'}`} />
-          <span>{wsConnected ? 'WS LIVE' : 'WS RECONNECTING'}</span>
+        <div className="status-pill" role="status">
+          <span className={`status-indicator ${wsConnected ? 'online' : 'offline'}`} aria-hidden="true" />
+          <span>{wsConnected ? 'Live' : 'Reconnecting'}</span>
         </div>
 
-        <div className="status-pill" style={{ color: 'var(--accent-cyan)' }}>
-          <span>{currentTime} UTC</span>
-        </div>
+        <div className="status-pill is-clock">{currentTime} UTC</div>
       </div>
     </header>
   );

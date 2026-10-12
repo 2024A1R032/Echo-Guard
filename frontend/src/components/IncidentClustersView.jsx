@@ -13,6 +13,7 @@ import {
   Clock,
   Radio
 } from 'lucide-react';
+import { threatLabel } from '../utils/threat';
 
 export default function IncidentClustersView() {
   const [data, setData] = useState({ metrics: { total_raw_alerts: 0, consolidated_incident_clusters: 0, redundancy_elimination_rate_percent: 0 }, clusters: [] });
@@ -48,41 +49,41 @@ export default function IncidentClustersView() {
       <div className="stats-grid">
         <div className="glass-panel stat-card">
           <div className="stat-info">
-            <span className="stat-label">Raw Ingested Alert Packets</span>
+            <span className="stat-label">Raw alerts received</span>
             <span className="stat-value">{metrics.total_raw_alerts || allAlerts.length}</span>
           </div>
-          <div className="stat-icon-wrapper" style={{ background: 'rgba(2, 132, 199, 0.1)', color: 'var(--accent-cyan)' }}>
+          <div className="stat-icon-wrapper" style={{ background: 'rgba(31, 90, 58, 0.1)', color: 'var(--accent-cyan)' }}>
             <Radio size={22} />
           </div>
         </div>
 
         <div className="glass-panel stat-card">
           <div className="stat-info">
-            <span className="stat-label">Consolidated Incident Dossiers</span>
+            <span className="stat-label">Merged incidents</span>
             <span className="stat-value" style={{ color: 'var(--accent-emerald)' }}>
               {metrics.consolidated_incident_clusters || Math.max(1, Math.ceil(allAlerts.length / 3))}
             </span>
           </div>
-          <div className="stat-icon-wrapper" style={{ background: 'rgba(5, 150, 105, 0.1)', color: 'var(--accent-emerald)' }}>
+          <div className="stat-icon-wrapper" style={{ background: 'rgba(46, 125, 79, 0.1)', color: 'var(--accent-emerald)' }}>
             <Layers size={22} />
           </div>
         </div>
 
         <div className="glass-panel stat-card">
           <div className="stat-info">
-            <span className="stat-label">Alarm Redundancy Removed</span>
+            <span className="stat-label">Duplicate alerts removed</span>
             <span className="stat-value" style={{ color: 'var(--accent-amber)' }}>
               {metrics.redundancy_elimination_rate_percent || 66.7}%
             </span>
           </div>
-          <div className="stat-icon-wrapper" style={{ background: 'rgba(217, 119, 6, 0.1)', color: 'var(--accent-amber)' }}>
+          <div className="stat-icon-wrapper" style={{ background: 'rgba(168, 102, 15, 0.1)', color: 'var(--accent-amber)' }}>
             <TrendingDown size={22} />
           </div>
         </div>
 
         <div className="glass-panel stat-card">
           <div className="stat-info">
-            <span className="stat-label">Fusion Spatial Radius</span>
+            <span className="stat-label">Merge radius and window</span>
             <span className="stat-value" style={{ color: 'var(--accent-blue)', fontSize: '1.2rem' }}>
               650m / 90s
             </span>
@@ -100,8 +101,8 @@ export default function IncidentClustersView() {
             <div className="panel-title-wrapper">
               <Network size={18} color="var(--accent-cyan)" />
               <div>
-                <div className="panel-title">Active Consolidated Incident Clusters</div>
-                <div className="panel-subtitle">Spatial-temporal multi-node sensor fusion & deduplication</div>
+                <div className="panel-title">Active incidents</div>
+                <div className="panel-subtitle">Merged when close in place and time</div>
               </div>
             </div>
             <button className="btn-secondary" onClick={loadClusters} style={{ padding: '0.35rem 0.6rem', fontSize: '0.74rem' }}>
@@ -138,22 +139,22 @@ export default function IncidentClustersView() {
                         {cluster.incident_id}
                       </span>
                       <span className={`threat-tag ${cluster.threat_type}`} style={{ fontSize: '0.65rem' }}>
-                        {cluster.threat_type}
+                        {threatLabel(cluster.threat_type)}
                       </span>
                     </div>
 
                     <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', marginBottom: '0.5rem' }}>
-                      <span className="brand-badge" style={{ fontSize: '0.62rem', background: 'rgba(2, 132, 199, 0.1)', color: 'var(--accent-cyan)', border: 'none' }}>
-                        {cluster.alert_count} Telemetry Hits Deduplicated
+                      <span className="brand-badge" style={{ fontSize: '0.62rem', background: 'rgba(31, 90, 58, 0.1)', color: 'var(--accent-cyan)', border: 'none' }}>
+                        {cluster.alert_count} alerts merged
                       </span>
-                      <span className="brand-badge" style={{ fontSize: '0.62rem', background: 'rgba(5, 150, 105, 0.1)', color: 'var(--accent-emerald)', border: 'none' }}>
+                      <span className="brand-badge" style={{ fontSize: '0.62rem', background: 'rgba(46, 125, 79, 0.1)', color: 'var(--accent-emerald)', border: 'none' }}>
                         {cluster.contributing_nodes.length} Sensors ({cluster.contributing_nodes.join(', ')})
                       </span>
                     </div>
 
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>
-                      <span>Epicenter: {cluster.epicenter_lat.toFixed(4)}, {cluster.epicenter_lon.toFixed(4)}</span>
-                      <span>Peak Conf: {(cluster.peak_confidence * 100).toFixed(0)}%</span>
+                      <span>Location: {cluster.epicenter_lat.toFixed(4)}, {cluster.epicenter_lon.toFixed(4)}</span>
+                      <span>Peak confidence: {(cluster.peak_confidence * 100).toFixed(0)}%</span>
                     </div>
                   </div>
                 );
@@ -167,7 +168,7 @@ export default function IncidentClustersView() {
           <div className="panel-header" style={{ marginBottom: '1rem', paddingBottom: '0.6rem' }}>
             <div className="panel-title-wrapper">
               <MapPin size={18} color="var(--accent-cyan)" />
-              <div className="panel-title">Triangulated Incident Dossier</div>
+              <div className="panel-title">Incident details</div>
             </div>
           </div>
 
@@ -177,23 +178,23 @@ export default function IncidentClustersView() {
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <div style={{ padding: '0.8rem', background: '#f8fafc', borderRadius: 'var(--radius-sm)', border: '1px solid #e2e8f0' }}>
-                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700, marginBottom: '0.2rem' }}>TRIANGULATION METHOD</div>
+              <div style={{ padding: '0.8rem', background: '#f8faf7', borderRadius: 'var(--radius-sm)', border: '1px solid #dce2db' }}>
+                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700, marginBottom: '0.2rem' }}>Location method</div>
                 <div style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--accent-blue)' }}>
-                  {selectedCluster.triangulation_status.replace(/_/g, ' ')}
+                  {({ TRIANGULATED: 'Triangulated from several sensors', SINGLE_NODE: 'Single sensor, approximate' })[selectedCluster.triangulation_status] || selectedCluster.triangulation_status.replace(/_/g, ' ').toLowerCase()}
                 </div>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.6rem' }}>
                 <div style={{ padding: '0.65rem', background: '#ffffff', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
-                  <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 700 }}>ESTIMATED EPICENTER</div>
+                  <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 700 }}>Estimated location</div>
                   <div style={{ fontSize: '0.82rem', fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--accent-cyan)' }}>
                     {selectedCluster.epicenter_lat}° N<br />{selectedCluster.epicenter_lon}° W
                   </div>
                 </div>
 
                 <div style={{ padding: '0.65rem', background: '#ffffff', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
-                  <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 700 }}>CONTRIBUTING SENSORS</div>
+                  <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 700 }}>Reporting sensors</div>
                   <div style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-primary)' }}>
                     {selectedCluster.contributing_nodes.join(' • ')}
                   </div>
@@ -202,10 +203,10 @@ export default function IncidentClustersView() {
 
               <div style={{ padding: '0.85rem', background: '#ffffff', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
                 <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)', display: 'block', marginBottom: '0.4rem' }}>
-                  CONSOLIDATED DISPATCH RECOMMENDATION:
+                  Recommended response
                 </span>
                 <p style={{ fontSize: '0.74rem', color: 'var(--text-primary)', margin: 0, lineHeight: 1.4 }}>
-                  Multi-node acoustic fusion confirmed continuous <strong>{selectedCluster.threat_type}</strong> activity. Single tactical ticket issued to Sector 4 Rapid Response Unit. <strong>{selectedCluster.alert_count} individual sensor alerts merged into this single dossier</strong> to prevent alarm fatigue.
+                  Sensors confirmed continuous <strong>{threatLabel(selectedCluster.threat_type).toLowerCase()}</strong> activity. <strong>{selectedCluster.alert_count} alerts were merged into this one incident</strong>, so rangers get a single ticket instead of repeated alarms.
                 </p>
               </div>
             </div>

@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { TelemetryProvider, useTelemetry } from './context/TelemetryContext';
 import Header from './components/Header';
+import SideNav from './components/SideNav';
 import TacticalRadar from './components/TacticalRadar';
+import TacticalMap from './components/TacticalMap';
 import AlertFeed from './components/AlertFeed';
 import VectorSearchConsole from './components/VectorSearchConsole';
 import SwarmMetrics from './components/SwarmMetrics';
@@ -9,74 +11,118 @@ import AudioSpectrogram from './components/AudioSpectrogram';
 import QuickDispatchModal from './components/QuickDispatchModal';
 import InspectEmbeddingModal from './components/InspectEmbeddingModal';
 import VerificationSandbox from './components/VerificationSandbox';
+import LiveFieldSimulation from './components/LiveFieldSimulation';
 import IncidentClustersView from './components/IncidentClustersView';
-import { ShieldAlert, Activity, Radio, Cpu } from 'lucide-react';
+import { VIEWS } from './views';
+import { threatLabel, alertTime, timeAgo, ACTIVE_WINDOW_MINUTES } from './utils/threat';
+
+function StatusBanner({ allAlerts, nodes, activeNodes }) {
+  const [now, setNow] = useState(Date.now());
+
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 30000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const windowMs = ACTIVE_WINDOW_MINUTES * 60 * 1000;
+  const recent = allAlerts
+    .map((a) => ({ alert: a, time: alertTime(a) }))
+    .filter((r) => r.time != null && now - r.time <= windowMs)
+    .sort((a, b) => b.time - a.time);
+
+  if (recent.length === 0) {
+    return (
+      <section className="status-banner" data-level="quiet" aria-live="polite">
+        <span className="status-mark" aria-hidden="true" />
+        <div>
+          <h1>All sensors quiet</h1>
+          <p>
+            No threats detected in the last {ACTIVE_WINDOW_MINUTES} minutes. {activeNodes} of {nodes.length} sensors online.
+          </p>
+        </div>
+      </section>
+    );
+  }
+
+  const latest = recent[0];
+  const node = nodes.find((n) => n.id === latest.alert.device_id);
+  const place = node ? node.name : latest.alert.device_id;
+  const confidence = Math.round((latest.alert.confidence_score || 0) * 100);
+
+  return (
+    <section className="status-banner" data-level="alert" aria-live="polite">
+      <span className="status-mark" aria-hidden="true" />
+      <div>
+        <h1>
+          {recent.length} {recent.length === 1 ? 'detection' : 'detections'} in the last {ACTIVE_WINDOW_MINUTES} minutes
+        </h1>
+        <p>
+          Latest: {threatLabel(latest.alert.threat_type).toLowerCase()} near {place}, {timeAgo(latest.time, now)}, {confidence}% confidence
+        </p>
+      </div>
+    </section>
+  );
+}
 
 function DashboardContent() {
   const [activeTab, setActiveTab] = useState('radar');
   const [dispatchModalOpen, setDispatchModalOpen] = useState(false);
   const [inspectAlert, setInspectAlert] = useState(null);
 
-  const { allAlerts, nodes, wsConnected } = useTelemetry();
+  const { allAlerts, nodes } = useTelemetry();
 
   const chainsawCount = allAlerts.filter((a) => a.threat_type === 'CHAINSAW').length;
   const gunshotCount = allAlerts.filter((a) => a.threat_type === 'GUNSHOT').length;
   const vesselCount = allAlerts.filter((a) => a.threat_type === 'ILLEGAL_VESSEL').length;
   const activeNodes = nodes.filter((n) => n.battery > 10).length;
 
+  const view = VIEWS.find((v) => v.id === activeTab) || VIEWS[0];
+
   return (
     <div className="app-container">
+      <SideNav activeTab={activeTab} setActiveTab={setActiveTab} />
+
       <Header
-        activeTab={activeTab}
-        setActiveTab={setActiveTab}
+        title={view.label}
+        description={view.description}
         onOpenDispatch={() => setDispatchModalOpen(true)}
       />
 
       <main className="main-content">
-        {/* Top Statistical KPI Cards */}
-        <div className="stats-grid">
-          <div className="glass-panel stat-card">
-            <div className="stat-info">
-              <span className="stat-label">Total Bioacoustic Hits</span>
-              <span className="stat-value">{allAlerts.length}</span>
+        <StatusBanner allAlerts={allAlerts} nodes={nodes} activeNodes={activeNodes} />
+
+        {activeTab === 'radar' && (
+          <div className="stats-grid">
+            <div className="glass-panel stat-card">
+              <div className="stat-info">
+                <span className="stat-label">Total detections</span>
+                <span className="stat-value">{allAlerts.length}</span>
+              </div>
             </div>
-            <div className="stat-icon-wrapper" style={{ background: 'rgba(0, 242, 254, 0.1)', color: 'var(--accent-cyan)' }}>
-              <Activity size={22} />
+
+            <div className="glass-panel stat-card">
+              <div className="stat-info">
+                <span className="stat-label">Chainsaws</span>
+                <span className="stat-value">{chainsawCount}</span>
+              </div>
+            </div>
+
+            <div className="glass-panel stat-card">
+              <div className="stat-info">
+                <span className="stat-label">Gunshots and vessels</span>
+                <span className="stat-value">{gunshotCount + vesselCount}</span>
+              </div>
+            </div>
+
+            <div className="glass-panel stat-card">
+              <div className="stat-info">
+                <span className="stat-label">Sensors online</span>
+                <span className="stat-value">{activeNodes} / {nodes.length}</span>
+              </div>
             </div>
           </div>
+        )}
 
-          <div className="glass-panel stat-card">
-            <div className="stat-info">
-              <span className="stat-label">Chainsaw Deforestation</span>
-              <span className="stat-value" style={{ color: 'var(--threat-chainsaw)' }}>{chainsawCount}</span>
-            </div>
-            <div className="stat-icon-wrapper" style={{ background: 'rgba(255, 42, 95, 0.1)', color: 'var(--threat-chainsaw)' }}>
-              <ShieldAlert size={22} />
-            </div>
-          </div>
-
-          <div className="glass-panel stat-card">
-            <div className="stat-info">
-              <span className="stat-label">Gunshot & Vessel Alerts</span>
-              <span className="stat-value" style={{ color: 'var(--accent-amber)' }}>{gunshotCount + vesselCount}</span>
-            </div>
-            <div className="stat-icon-wrapper" style={{ background: 'rgba(245, 158, 11, 0.1)', color: 'var(--accent-amber)' }}>
-              <Radio size={22} />
-            </div>
-          </div>
-
-          <div className="glass-panel stat-card">
-            <div className="stat-info">
-              <span className="stat-label">Active Transducer Nodes</span>
-              <span className="stat-value" style={{ color: 'var(--accent-emerald)' }}>{activeNodes} / {nodes.length}</span>
-            </div>
-            <div className="stat-icon-wrapper" style={{ background: 'rgba(16, 185, 129, 0.1)', color: 'var(--accent-emerald)' }}>
-              <Cpu size={22} />
-            </div>
-          </div>
-        </div>
-
-        {/* Tab View Switcher */}
         {activeTab === 'radar' && (
           <div className="dashboard-grid">
             <div className="radar-section">
@@ -89,24 +135,21 @@ function DashboardContent() {
           </div>
         )}
 
-        {activeTab === 'sandbox' && (
-          <VerificationSandbox />
+        {activeTab === 'map' && (
+          <TacticalMap onOpenDispatch={() => setDispatchModalOpen(true)} />
         )}
 
-        {activeTab === 'clusters' && (
-          <IncidentClustersView />
-        )}
+        {activeTab === 'simulate' && <LiveFieldSimulation />}
 
-        {activeTab === 'vector-search' && (
-          <VectorSearchConsole />
-        )}
+        {activeTab === 'sandbox' && <VerificationSandbox />}
 
-        {activeTab === 'swarm' && (
-          <SwarmMetrics />
-        )}
+        {activeTab === 'clusters' && <IncidentClustersView />}
+
+        {activeTab === 'vector-search' && <VectorSearchConsole />}
+
+        {activeTab === 'swarm' && <SwarmMetrics />}
       </main>
 
-      {/* Modals */}
       <QuickDispatchModal
         isOpen={dispatchModalOpen}
         onClose={() => setDispatchModalOpen(false)}
