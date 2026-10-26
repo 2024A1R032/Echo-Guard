@@ -65,3 +65,44 @@ export async function verifyAcousticForensics(threatType, confidenceScore = 0.95
 export function getWebSocketEndpoint() {
   return `${WS_BASE_URL}/api/v1/telemetry/ws`;
 }
+
+// Drop an audio or video clip at a point in the forest and let every sensor node listen to it.
+export async function dropAudioInForest({ file, nodes, sourceLat, sourceLon, loudness = 'normal', sendAlerts = true }) {
+  const body = new FormData();
+  body.append('file', file);
+  body.append('nodes', JSON.stringify(nodes.map(({ id, name, lat, lon }) => ({ id, name, lat, lon }))));
+  body.append('source_lat', String(sourceLat));
+  body.append('source_lon', String(sourceLon));
+  body.append('loudness', loudness);
+  body.append('send_alerts', sendAlerts ? 'true' : 'false');
+
+  let response;
+  try {
+    response = await fetch(`${API_BASE_URL}/api/v1/simulate/audio-drop`, { method: 'POST', body });
+  } catch {
+    throw new Error('Could not reach the backend. Make sure it is running, then try again.');
+  }
+  if (!response.ok) {
+    let detail = `The server returned an error (${response.status}).`;
+    try {
+      const data = await response.json();
+      if (data.detail) detail = typeof data.detail === 'string' ? data.detail : JSON.stringify(data.detail);
+    } catch {
+      // keep the generic message
+    }
+    throw new Error(detail);
+  }
+  return await response.json();
+}
+
+// How far a sensor can pick out a sound for each loudness (simulated assumption).
+export async function fetchListeningRange() {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/v1/simulate/coverage`);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    return await response.json();
+  } catch (err) {
+    console.warn('[API] Failed to fetch listening range:', err.message);
+    return null;
+  }
+}

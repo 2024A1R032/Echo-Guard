@@ -1,120 +1,112 @@
 import React from 'react';
 import { useTelemetry } from '../context/TelemetryContext';
-import { Activity, Battery, Wifi, MapPin, AlertTriangle, ShieldCheck, Zap } from 'lucide-react';
-import { threatLabel } from '../utils/threat';
+import { threatLabel, alertTime, timeAgo } from '../utils/threat';
+
+const THREAT_ORDER = ['CHAINSAW', 'GUNSHOT', 'ILLEGAL_VESSEL', 'VEHICLE_ENGINE', 'BLAST_FISHING'];
+
+function batteryColor(level) {
+  if (level < 20) return 'var(--accent-red)';
+  if (level < 50) return 'var(--accent-amber)';
+  return 'var(--accent-emerald)';
+}
 
 export default function SwarmMetrics() {
-  const { nodes, allAlerts, setSelectedNode } = useTelemetry();
+  const { nodes, allAlerts } = useTelemetry();
 
-  // Threat type aggregation
-  const threatCounts = allAlerts.reduce((acc, alert) => {
+  const counts = allAlerts.reduce((acc, alert) => {
     acc[alert.threat_type] = (acc[alert.threat_type] || 0) + 1;
     return acc;
   }, {});
+  const latestByNode = {};
+  allAlerts.forEach((alert) => {
+    if (!latestByNode[alert.device_id]) latestByNode[alert.device_id] = alert;
+  });
+  const maxCount = Math.max(1, ...THREAT_ORDER.map((type) => counts[type] || 0));
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-      {/* Node Grid Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1.25rem' }}>
-        {nodes.map((node) => {
-          const isLowBattery = node.battery < 20;
-          const batteryColor = isLowBattery ? 'var(--accent-red)' : node.battery < 50 ? 'var(--accent-amber)' : 'var(--accent-emerald)';
+    <div className="view-stack">
+      <section className="glass-panel" aria-label="Sensors">
+        <div className="panel-header">
+          <div>
+            <div className="panel-title">Sensors</div>
+            <div className="panel-subtitle">Position, battery and latest detection for each sensor</div>
+          </div>
+        </div>
+        <div className="table-wrap">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Sensor</th>
+                <th>Status</th>
+                <th>Position</th>
+                <th>Battery</th>
+                <th>Latest detection</th>
+              </tr>
+            </thead>
+            <tbody>
+              {nodes.map((node) => {
+                const online = node.battery > 10;
+                return (
+                  <tr key={node.id}>
+                    <td>
+                      <strong>{node.name || node.id}</strong>
+                      <div className="mono-note">{node.id}</div>
+                    </td>
+                    <td>
+                      <span className="status-inline">
+                        <span className={`status-indicator ${online ? 'online' : 'offline'}`} aria-hidden="true" />
+                        {online ? 'Online' : 'Low power'}
+                      </span>
+                    </td>
+                    <td className="mono-note">{node.lat.toFixed(4)}°, {node.lon.toFixed(4)}°</td>
+                    <td>
+                      <div className="confidence-bar-container">
+                        <div className="confidence-track" style={{ width: '72px' }} aria-hidden="true">
+                          <div className="confidence-fill" style={{ width: `${node.battery}%`, backgroundColor: batteryColor(node.battery) }} />
+                        </div>
+                        <span style={{ fontWeight: 600, color: batteryColor(node.battery) }}>{node.battery.toFixed(0)}%</span>
+                      </div>
+                    </td>
+                    <td>
+                      {latestByNode[node.id] ? (
+                        <span className="status-inline">
+                          <span className={`threat-tag ${latestByNode[node.id].threat_type}`}>{threatLabel(latestByNode[node.id].threat_type)}</span>
+                          <span className="mono-note">{timeAgo(alertTime(latestByNode[node.id]))}</span>
+                        </span>
+                      ) : (
+                        <span className="mono-note">None yet</span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </section>
 
-          return (
-            <div
-              key={node.id}
-              className="glass-panel"
-              style={{ padding: '1.25rem', cursor: 'pointer', transition: 'all 0.2s', background: '#ffffff' }}
-              onClick={() => setSelectedNode(node)}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.65rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-                  <div className={`status-indicator ${node.battery > 10 ? 'online' : 'offline'}`} />
-                  <span style={{ fontWeight: 800, fontFamily: 'var(--font-mono)', fontSize: '0.9rem', color: 'var(--text-primary)' }}>
-                    {node.id}
-                  </span>
-                </div>
-                <span className="brand-badge" style={{ fontSize: '0.65rem' }}>
-                  {node.status}
-                </span>
-              </div>
-
-              <div style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '0.75rem' }}>
-                {node.name}
-              </div>
-
-              {/* Coordinates */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.74rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', marginBottom: '0.85rem' }}>
-                <MapPin size={13} color="var(--accent-cyan)" />
-                <span>{node.lat.toFixed(4)}° N, {node.lon.toFixed(4)}° W</span>
-              </div>
-
-              {/* Battery & Signal */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem', paddingTop: '0.75rem', borderTop: '1px solid var(--border-subtle)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem' }}>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', color: 'var(--text-secondary)', fontWeight: 600 }}>
-                    <Battery size={14} color={batteryColor} /> Battery
-                  </span>
-                  <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 800, color: batteryColor }}>
-                    {node.battery.toFixed(0)}%
-                  </span>
-                </div>
-                <div style={{ height: '6px', background: '#dce2db', borderRadius: '3px', overflow: 'hidden' }}>
-                  <div style={{ height: '100%', width: `${node.battery}%`, background: batteryColor, borderRadius: '3px' }} />
-                </div>
-              </div>
-
-              {node.lastDetection && (
-                <div style={{ marginTop: '0.75rem', paddingTop: '0.5rem', borderTop: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.72rem' }}>
-                  <span style={{ color: 'var(--text-muted)' }}>Last detection:</span>
-                  <span className={`threat-tag ${node.lastDetection}`} style={{ fontSize: '0.75rem' }}>
-                    {threatLabel(node.lastDetection)}
-                  </span>
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Threat Distribution Summary */}
-      <div className="glass-panel" style={{ padding: '1.5rem', background: '#ffffff' }}>
-        <div className="panel-title-wrapper" style={{ marginBottom: '1.25rem' }}>
-          <Activity size={18} color="var(--accent-cyan)" />
+      <section className="glass-panel" aria-label="Alerts by threat type">
+        <div className="panel-header">
           <div>
             <div className="panel-title">Alerts by threat type</div>
             <div className="panel-subtitle">All detections reported by sensors so far</div>
           </div>
         </div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '1rem' }}>
-          {['CHAINSAW', 'GUNSHOT', 'ILLEGAL_VESSEL', 'VEHICLE_ENGINE', 'BLAST_FISHING'].map((type) => {
-            const count = threatCounts[type] || 0;
+        <ul className="bar-list">
+          {THREAT_ORDER.map((type) => {
+            const count = counts[type] || 0;
             return (
-              <div
-                key={type}
-                style={{
-                  background: 'var(--bg-primary)',
-                  border: '1px solid var(--border-subtle)',
-                  borderRadius: 'var(--radius-md)',
-                  padding: '1.1rem',
-                  textAlign: 'center',
-                }}
-              >
-                <span className={`threat-tag ${type}`} style={{ fontSize: '0.78rem', marginBottom: '0.5rem' }}>
-                  {threatLabel(type)}
-                </span>
-                <div style={{ fontSize: '1.85rem', fontWeight: 800, fontFamily: 'var(--font-mono)', color: 'var(--text-primary)', marginTop: '0.4rem' }}>
-                  {count}
+              <li key={type}>
+                <span className={`threat-tag ${type}`}>{threatLabel(type)}</span>
+                <div className="bar-track" aria-hidden="true">
+                  <div className="bar-fill" style={{ width: `${(count / maxCount) * 100}%`, background: `var(--threat-${type === 'ILLEGAL_VESSEL' ? 'vessel' : type === 'VEHICLE_ENGINE' ? 'vehicle' : type === 'BLAST_FISHING' ? 'blast' : type.toLowerCase()})` }} />
                 </div>
-                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600, marginTop: '0.2rem' }}>
-                  Detections
-                </div>
-              </div>
+                <span className="bar-count">{count}</span>
+              </li>
             );
           })}
-        </div>
-      </div>
+        </ul>
+      </section>
     </div>
   );
 }

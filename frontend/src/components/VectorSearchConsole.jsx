@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { searchAcousticThreats } from '../services/api';
-import { Cpu, Search, Sparkles, Database, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { Cpu, Search, Database, ArrowRight, CheckCircle2 } from 'lucide-react';
 import { threatLabel } from '../utils/threat';
 
 const PRESET_SIGNATURES = [
@@ -177,7 +177,6 @@ export default function VectorSearchConsole() {
 
         {!results && !error && (
           <div style={{ margin: 'auto', textAlign: 'center', color: 'var(--text-muted)', padding: '3rem 1rem' }}>
-            <Sparkles size={36} style={{ margin: '0 auto 0.75rem', opacity: 0.6, color: 'var(--accent-cyan)' }} />
             <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-primary)' }}>No search yet</div>
             <div style={{ fontSize: '0.78rem', marginTop: '0.35rem' }}>
               Choose a sound on the left, then select “Find similar sounds”.

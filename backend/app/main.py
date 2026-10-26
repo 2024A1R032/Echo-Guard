@@ -1,12 +1,30 @@
+import sys
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api.routes import alerts, reports, incidents, audio, simulation
 from app.core.config import settings
+from app.services.audio_classifier import get_yamnet_classifier
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Eagerly initialize and verify YAMNet model on startup
+    print("\n[ECHO-GUARD STARTUP] Initializing YAMNet Audio Classifier...", flush=True)
+    classifier = get_yamnet_classifier()
+    classifier._load_model()
+    if classifier._is_loaded:
+        print(f"[ECHO-GUARD STARTUP] Real YAMNet successfully loaded ({len(classifier._class_names)} classes). Status: ONLINE\n", flush=True)
+    else:
+        print(f"[ECHO-GUARD STARTUP WARNING] Real YAMNet is NOT loaded: {classifier.load_error}. Status: FALLBACK\n", file=sys.stderr, flush=True)
+    yield
+
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
     version=settings.VERSION,
-    description="Bioacoustic edge AI threat detection & LangGraph tactical defense platform"
+    description="Bioacoustic edge AI threat detection & LangGraph tactical defense platform",
+    lifespan=lifespan,
 )
 
 # CORS setup for React.js dashboard integration
@@ -52,7 +70,7 @@ app.include_router(
     tags=["audio"]
 )
 
-# Live Field Simulation Demo
+# Audio Drop Simulation: drop a real clip in the forest and let the nodes listen
 app.include_router(
     simulation.router,
     tags=["simulation"]

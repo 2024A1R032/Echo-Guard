@@ -91,10 +91,13 @@ async def classify_uploaded_audio(file: UploadFile = File(...)):
 @router.get("/model/info")
 async def get_model_info():
     """
-    Returns information about the loaded YAMNet bioacoustic classifier.
+    Reports which model is actually active. "ONLINE" means real YAMNet is loaded;
+    "FALLBACK" means the signal heuristic is being used instead.
     """
     try:
         classifier, _ = get_classifier()
+        classifier._load_model()
+        real_model = bool(classifier._is_loaded)
         return {
             "model_type": "Google YAMNet (TensorFlow Hub)",
             "model_url": "https://tfhub.dev/google/yamnet/1",
@@ -103,7 +106,9 @@ async def get_model_info():
             "audioset_classes_count": len(classifier._class_names),
             "mapped_threat_categories": ["CHAINSAW", "GUNSHOT", "ILLEGAL_VESSEL", "VEHICLE_ENGINE", "BLAST_FISHING", "UNKNOWN"],
             "embedding_dimension": 128,
-            "status": "ONLINE",
+            "status": "ONLINE" if real_model else "FALLBACK",
+            "using_real_yamnet": real_model,
+            "load_error": classifier.load_error,
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Model not available: {str(e)}")

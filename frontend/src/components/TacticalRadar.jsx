@@ -63,9 +63,6 @@ export default function TacticalRadar() {
       </div>
 
       <div className="radar-container">
-        {/* Animated Sweep Line */}
-        <div className="radar-sweep" />
-
         {/* SVG Radar Grid & Sensor Nodes */}
         <svg
           viewBox="0 0 580 460"
@@ -101,7 +98,7 @@ export default function TacticalRadar() {
           <text x="475" y="224" fill="#1f5a3a" fontSize="9" fontWeight="600" fontFamily="var(--font-mono)">3 km</text>
 
           {/* Active Threat Shockwave Rings */}
-          {pulseThreats.map((threat, idx) => {
+          {pulseThreats.slice(0, 1).map((threat, idx) => {
             const coords = getScreenCoords(threat.latitude || centerLat, threat.longitude || centerLon);
             const isCritical = threat.threat_type === 'CHAINSAW' || threat.threat_type === 'GUNSHOT' || threat.threat_type === 'BLAST_FISHING';
             const color = isCritical ? '#cc3a21' : '#1f5a3a';
@@ -123,8 +120,8 @@ export default function TacticalRadar() {
                   strokeWidth="2"
                   opacity="0.8"
                 >
-                  <animate attributeName="r" from="10" to="55" dur="1.8s" repeatCount="indefinite" />
-                  <animate attributeName="opacity" from="0.9" to="0" dur="1.8s" repeatCount="indefinite" />
+                  <animate attributeName="r" from="10" to="55" dur="1.8s" repeatCount="3" />
+                  <animate attributeName="opacity" from="0.9" to="0" dur="1.8s" repeatCount="3" />
                 </circle>
                 <circle
                   cx={coords.x}
@@ -135,8 +132,8 @@ export default function TacticalRadar() {
                   strokeWidth="1.2"
                   opacity="0.5"
                 >
-                  <animate attributeName="r" from="20" to="85" dur="1.8s" begin="0.4s" repeatCount="indefinite" />
-                  <animate attributeName="opacity" from="0.7" to="0" dur="1.8s" begin="0.4s" repeatCount="indefinite" />
+                  <animate attributeName="r" from="20" to="85" dur="1.8s" begin="0.4s" repeatCount="3" />
+                  <animate attributeName="opacity" from="0.7" to="0" dur="1.8s" begin="0.4s" repeatCount="3" />
                 </circle>
               </g>
             );

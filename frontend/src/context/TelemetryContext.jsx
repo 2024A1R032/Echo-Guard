@@ -4,17 +4,31 @@ import { fetchRecentAlerts, getWebSocketEndpoint, checkBackendHealth, postTeleme
 const TelemetryContext = createContext(null);
 
 export const DEFAULT_NODES = [
-  { id: 'NODE-ALPHA', name: 'Alpha Reserve North', lat: -3.4653, lon: -62.2159, battery: 94, status: 'ONLINE', signal: 98 },
-  { id: 'NODE-BRAVO', name: 'Bravo River Outpost', lat: -3.4812, lon: -62.1984, battery: 88, status: 'ONLINE', signal: 92 },
-  { id: 'NODE-CHARLIE', name: 'Charlie Canopy Perimeter', lat: -3.4501, lon: -62.2341, battery: 91, status: 'ONLINE', signal: 95 },
-  { id: 'NODE-DELTA', name: 'Delta Marine Sanctuary', lat: -3.4735, lon: -62.2510, battery: 76, status: 'ONLINE', signal: 86 },
-  { id: 'NODE-ECHO', name: 'Echo Deep Rainforest', lat: -3.4920, lon: -62.2215, battery: 83, status: 'ONLINE', signal: 89 },
-  { id: 'NODE-FOXTROT', name: 'Foxtrot Boundary Creek', lat: -3.4410, lon: -62.1890, battery: 65, status: 'ONLINE', signal: 78 },
+  // --- Central & Northern Canopy Grid (>= 1.7 km apart) ---
+  { id: 'NODE-ALPHA', name: 'Alpha Reserve North', lat: -3.4530, lon: -62.2200, battery: 94, status: 'ONLINE', signal: 98 },
+  { id: 'NODE-JULIETT', name: 'Juliett Central Sanctuary', lat: -3.4700, lon: -62.2150, battery: 96, status: 'ONLINE', signal: 99 },
+  { id: 'NODE-NOVEMBER', name: 'November Northern Canopy', lat: -3.4250, lon: -62.2220, battery: 87, status: 'ONLINE', signal: 90 },
+  { id: 'NODE-HOTEL', name: 'Hotel Northeast Basin', lat: -3.4350, lon: -62.1980, battery: 85, status: 'ONLINE', signal: 91 },
+  { id: 'NODE-INDIA', name: 'India Northwest Ridge', lat: -3.4360, lon: -62.2460, battery: 88, status: 'ONLINE', signal: 89 },
+  { id: 'NODE-CHARLIE', name: 'Charlie Canopy Perimeter', lat: -3.4520, lon: -62.2400, battery: 91, status: 'ONLINE', signal: 95 },
+  { id: 'NODE-FOXTROT', name: 'Foxtrot Boundary Creek', lat: -3.4460, lon: -62.1800, battery: 65, status: 'ONLINE', signal: 78 },
+  { id: 'NODE-GOLF', name: 'Golf Eastern Ridge', lat: -3.4620, lon: -62.1700, battery: 90, status: 'ONLINE', signal: 94 },
+  { id: 'NODE-KILO', name: 'Kilo Western Wetland', lat: -3.4650, lon: -62.2620, battery: 79, status: 'ONLINE', signal: 84 },
+  { id: 'NODE-OSCAR', name: 'Oscar Southern Foothills', lat: -3.5100, lon: -62.2100, battery: 84, status: 'ONLINE', signal: 88 },
+
+  // --- Water & River Monitoring Chain (Lima -> Delta -> Echo -> Bravo -> Papa -> Mike) ---
+  { id: 'NODE-DELTA', name: 'Delta Marine Sanctuary', lat: -3.4780, lon: -62.2530, battery: 76, status: 'ONLINE', signal: 86 },
+  { id: 'NODE-LIMA', name: 'Lima Southwest Mangrove', lat: -3.4920, lon: -62.2420, battery: 82, status: 'ONLINE', signal: 87 },
+  { id: 'NODE-ECHO', name: 'Echo River Corridor', lat: -3.4930, lon: -62.2180, battery: 83, status: 'ONLINE', signal: 89 },
+  { id: 'NODE-BRAVO', name: 'Bravo River Outpost', lat: -3.4860, lon: -62.1960, battery: 88, status: 'ONLINE', signal: 92 },
+  { id: 'NODE-PAPA', name: 'Papa River East Crossing', lat: -3.4790, lon: -62.1720, battery: 89, status: 'ONLINE', signal: 92 },
+  { id: 'NODE-MIKE', name: 'Mike Southeast River Bend', lat: -3.5040, lon: -62.1820, battery: 91, status: 'ONLINE', signal: 93 },
 ];
 
 export function TelemetryProvider({ children }) {
   const [alerts, setAlerts] = useState([]);
   const [activeThreats, setActiveThreats] = useState([]);
+  const [alertsLoaded, setAlertsLoaded] = useState(false);
   const [wsConnected, setWsConnected] = useState(false);
   const [backendOnline, setBackendOnline] = useState(false);
   const [selectedNode, setSelectedNode] = useState(null);
@@ -157,7 +171,7 @@ export function TelemetryProvider({ children }) {
         setAlerts(data);
         setActiveThreats(data.slice(0, 5));
       }
-    });
+    }).finally(() => setAlertsLoaded(true));
 
     // Health check polling
     const healthInterval = setInterval(() => {
@@ -210,6 +224,7 @@ export function TelemetryProvider({ children }) {
   const value = {
     alerts: filteredAlerts,
     allAlerts: alerts,
+    alertsLoaded,
     activeThreats,
     nodes,
     wsConnected,

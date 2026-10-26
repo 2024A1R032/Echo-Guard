@@ -81,14 +81,14 @@ export default function AudioSpectrogram() {
   const latestThreat = activeThreats[0];
 
   return (
-    <div className="glass-panel" style={{ padding: '1.25rem' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-          <Waves size={16} color="var(--accent-cyan)" />
-          <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)' }}>Audio signal</span>
+    <div className="open-section">
+      <div className="section-head">
+        <div>
+          <div className="panel-title">Signal pattern</div>
+          <div className="panel-subtitle">An illustration of the latest threat’s sound, not a live recording</div>
         </div>
-        <span className={`threat-tag ${latestThreat ? latestThreat.threat_type : 'UNKNOWN'}`} style={{ fontSize: '0.65rem' }}>
-          {latestThreat ? `${threatLabel(latestThreat.threat_type)} pattern` : 'Ambient forest noise'}
+        <span className={`threat-tag ${latestThreat ? latestThreat.threat_type : 'UNKNOWN'}`}>
+          {latestThreat ? threatLabel(latestThreat.threat_type) : 'Ambient forest noise'}
         </span>
       </div>
 

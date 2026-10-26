@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, Circle, LayersControl } from 'react-leaflet';
+import React, { useState, useEffect, useRef } from 'react';
+import { MapContainer, TileLayer, Marker, Popup, Circle, LayersControl, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useTelemetry } from '../context/TelemetryContext';
@@ -19,30 +19,43 @@ import { threatLabel } from '../utils/threat';
 
 const { BaseLayer } = LayersControl;
 
-// Custom SVG-based High-Tech Map Icons
+// Simple map marker: a dot with a white ring. Active threats get a soft ring that pulses a few times.
 const createNodeIcon = (isActiveThreat, threatType) => {
-  const color = isActiveThreat 
-    ? (threatType === 'CHAINSAW' ? '#cc3a21' : threatType === 'GUNSHOT' ? '#dc2626' : '#a8660f')
+  const color = isActiveThreat
+    ? (threatType === 'CHAINSAW' ? '#cc3a21' : threatType === 'GUNSHOT' ? '#a52a1a' : '#a8660f')
     : '#2e7d4f';
 
   return L.divIcon({
     className: 'tactical-custom-marker',
     html: `
       <div style="position: relative; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;">
-        ${isActiveThreat ? `
-          <div style="position: absolute; width: 36px; height: 36px; border-radius: 50%; background: ${color}; opacity: 0.35; animation: ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;"></div>
-          <div style="position: absolute; width: 48px; height: 48px; border-radius: 50%; border: 1.5px dashed ${color}; opacity: 0.6; animation: spin 8s linear infinite;"></div>
-        ` : ''}
-        <div style="width: 22px; height: 22px; border-radius: 50%; background: #ffffff; border: 3px solid ${color}; box-shadow: 0 0 12px ${color}88; display: flex; align-items: center; justify-content: center; z-index: 10;">
-          <div style="width: 8px; height: 8px; border-radius: 50%; background: ${color};"></div>
-        </div>
+        ${isActiveThreat ? `<div style="position: absolute; width: 30px; height: 30px; border-radius: 50%; background: ${color}; opacity: 0.4; animation: ping 1.8s ease-out 3;"></div>` : ''}
+        <div style="width: 16px; height: 16px; border-radius: 50%; background: ${color}; border: 3px solid #ffffff; box-shadow: 0 1px 4px rgba(0,0,0,0.35); z-index: 10;"></div>
       </div>
     `,
     iconSize: [36, 36],
     iconAnchor: [18, 18],
-    popupAnchor: [0, -18],
+    popupAnchor: [0, -14],
   });
 };
+
+// Glide to the newest alert instead of jumping.
+function FlyToLatest({ alert }) {
+  const map = useMap();
+  const lastKey = useRef(alert ? (alert.id || alert.receivedAt || alert.timestamp) : null);
+
+  useEffect(() => {
+    if (!alert) return;
+    const key = alert.id || alert.receivedAt || alert.timestamp;
+    if (key === lastKey.current) return;
+    lastKey.current = key;
+    if (alert.latitude != null && alert.longitude != null) {
+      map.flyTo([alert.latitude, alert.longitude], Math.max(map.getZoom(), 14), { duration: 1.2 });
+    }
+  }, [alert, map]);
+
+  return null;
+}
 
 export default function TacticalMap({ onOpenDispatch }) {
   const { nodes, allAlerts } = useTelemetry();
@@ -65,7 +78,7 @@ export default function TacticalMap({ onOpenDispatch }) {
       {/* Top Map Control Bar */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem 1.25rem', borderBottom: '1px solid var(--border-subtle)', background: 'var(--bg-card)', zIndex: 1000 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <div style={{ width: 10, height: 10, borderRadius: '50%', background: 'var(--accent-emerald)', boxShadow: '0 0 8px var(--accent-emerald)' }}></div>
+          <div style={{ width: 10, height: 10, borderRadius: '50%', background: 'var(--accent-emerald)' }}></div>
           <span style={{ fontWeight: 600, fontSize: '0.95rem', color: 'var(--text-primary)' }}>
             Sensor map
           </span>
@@ -104,6 +117,7 @@ export default function TacticalMap({ onOpenDispatch }) {
           scrollWheelZoom={true}
           style={{ width: '100%', height: '100%', background: '#16241b' }}
         >
+          <FlyToLatest alert={latestActiveThreat} />
           <LayersControl position="topright">
             <BaseLayer checked name="Satellite (Esri)">
               <TileLayer
@@ -147,9 +161,9 @@ export default function TacticalMap({ onOpenDispatch }) {
                   pathOptions={{
                     color: hasThreat ? '#cc3a21' : '#1f5a3a',
                     fillColor: hasThreat ? '#cc3a21' : '#1f5a3a',
-                    fillOpacity: hasThreat ? 0.2 : 0.08,
-                    weight: hasThreat ? 2 : 1,
-                    dashArray: hasThreat ? '4, 4' : undefined,
+                    fillOpacity: hasThreat ? 0.1 : 0.05,
+                    weight: 1,
+                    opacity: hasThreat ? 0.7 : 0.45,
                   }}
                 />
 

@@ -1,132 +1,134 @@
 """
-Live Field Simulation API Routes
-===================================
-Endpoints for the interactive field simulation demo.
-Serves pre-built audio scenario clips and triggers live classification.
+Audio Drop Simulation API
+=========================
+Drop a real audio or video clip at a point in the forest. Every sensor node
+"hears" it according to its distance, and the nodes that detect a threat raise
+real alerts through the normal alert pipeline.
 """
-
+import json
 import logging
-import base64
-from fastapi import APIRouter, HTTPException
-from fastapi.responses import Response
-
-from app.services.audio_generator import generate_scenario_audio, list_scenarios, SCENARIOS
-from app.services.audio_classifier import classify_audio_file, get_yamnet_classifier
-from app.services.inference import generate_synthetic_acoustic_embedding
-from app.services.forensics import analyze_acoustic_forensics
-from app.services.clustering import cluster_manager
-
-import numpy as np
-import tempfile
 import os
+import tempfile
+from typing import List, Optional
+
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi.concurrency import run_in_threadpool
+from pydantic import BaseModel, Field, TypeAdapter, ValidationError
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.api.routes.alerts import persist_and_broadcast_alert
+from app.db.database import get_db
+from app.schemas.payload import ThreatAlertCreate
+from app.services.audio_classifier import get_yamnet_classifier
+from app.services.audio_simulation import (
+    LOUDNESS_OFFSET_DB,
+    MIN_DETECTION_SNR_DB,
+    SUPPORTED_EXTENSIONS,
+    AudioDecodeError,
+    decode_audio,
+    detection_radius_m,
+    simulate_audio_drop,
+)
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/v1/simulation", tags=["simulation"])
+router = APIRouter(prefix="/api/v1/simulate", tags=["simulation"])
+
+MAX_UPLOAD_BYTES = 50 * 1024 * 1024
+MAX_NODES = 50
 
 
-@router.get("/scenarios")
-async def get_scenarios():
-    """List all available field simulation scenarios."""
-    return {"scenarios": list_scenarios()}
+class NodePosition(BaseModel):
+    id: str = Field(..., min_length=1, max_length=50)
+    lat: float = Field(..., ge=-90.0, le=90.0)
+    lon: float = Field(..., ge=-180.0, le=180.0)
+    name: Optional[str] = Field(default=None, max_length=120)
 
 
-@router.get("/scenarios/{scenario_id}/audio")
-async def get_scenario_audio(scenario_id: str):
-    """
-    Generate and return WAV audio bytes for a scenario.
-    Returns the raw WAV file as audio/wav.
-    """
-    try:
-        result = generate_scenario_audio(scenario_id)
-        return Response(
-            content=result["wav_bytes"],
-            media_type="audio/wav",
-            headers={
-                "Content-Disposition": f'inline; filename="{scenario_id}.wav"',
-                "X-Duration-Sec": str(result["duration_sec"]),
-                "X-Sample-Rate": str(result["sample_rate"]),
-                "X-Threat-Type": result["scenario"]["threat_type"],
-            }
+_nodes_adapter = TypeAdapter(List[NodePosition])
+
+
+async def _read_limited(upload: UploadFile) -> bytes:
+    contents = await upload.read(MAX_UPLOAD_BYTES + 1)
+    if len(contents) > MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=413, detail="File too large. The limit is 50 MB.")
+    if not contents:
+        raise HTTPException(status_code=400, detail="The uploaded file is empty.")
+    return contents
+
+
+@router.get("/coverage")
+async def get_listening_range():
+    """How far a node can pick out a sound, for each loudness. Used to draw the ranges on the forest."""
+    return {
+        "detection_radius_m": {name: detection_radius_m(name) for name in LOUDNESS_OFFSET_DB},
+        "minimum_snr_db": MIN_DETECTION_SNR_DB,
+        "note": "Simulated assumptions, not a measured field range.",
+    }
+
+
+@router.post("/audio-drop")
+async def drop_audio_in_forest(
+    file: UploadFile = File(...),
+    nodes: str = Form(..., description="JSON list of sensors: [{id, lat, lon, name?}]"),
+    source_lat: float = Form(..., ge=-90.0, le=90.0),
+    source_lon: float = Form(..., ge=-180.0, le=180.0),
+    loudness: str = Form("normal", description="quiet, normal or loud"),
+    send_alerts: bool = Form(True, description="Store alerts for the nodes that detect a threat"),
+    db: AsyncSession = Depends(get_db),
+):
+    filename = file.filename or ""
+    if not filename.lower().endswith(SUPPORTED_EXTENSIONS):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported file type. Use one of: {', '.join(SUPPORTED_EXTENSIONS)}",
         )
-    except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+    if loudness not in LOUDNESS_OFFSET_DB:
+        raise HTTPException(status_code=422, detail=f"loudness must be one of {sorted(LOUDNESS_OFFSET_DB)}")
 
-
-@router.get("/scenarios/{scenario_id}/preview")
-async def get_scenario_preview(scenario_id: str):
-    """
-    Return scenario metadata + a waveform preview (200 data points) 
-    + base64-encoded WAV for in-browser playback.
-    """
     try:
-        result = generate_scenario_audio(scenario_id)
-        wav_b64 = base64.b64encode(result["wav_bytes"]).decode("ascii")
-        return {
-            "scenario_id": result["scenario_id"],
-            "scenario": result["scenario"],
-            "duration_sec": result["duration_sec"],
-            "sample_rate": result["sample_rate"],
-            "waveform_preview": result["waveform_preview"],
-            "wav_base64": wav_b64,
-        }
-    except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        node_list = [n.model_dump() for n in _nodes_adapter.validate_json(nodes)]
+    except ValidationError as error:
+        raise HTTPException(status_code=422, detail=f"Invalid nodes list: {error.errors()[0]['msg']}")
+    if not node_list:
+        raise HTTPException(status_code=422, detail="Provide at least one sensor node.")
+    if len(node_list) > MAX_NODES:
+        raise HTTPException(status_code=422, detail=f"At most {MAX_NODES} nodes are supported.")
 
+    contents = await _read_limited(file)
 
-@router.post("/scenarios/{scenario_id}/classify")
-async def classify_scenario(scenario_id: str):
-    """
-    Generate the scenario audio, write to a temp file,
-    run it through the full YAMNet classification pipeline,
-    and return the ML analysis results.
-    """
+    suffix = os.path.splitext(filename)[1].lower()
+    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as handle:
+        handle.write(contents)
+        temp_path = handle.name
+
     try:
-        result = generate_scenario_audio(scenario_id)
-        scenario = result["scenario"]
-
-        # Write WAV to temp file for the classifier
-        tmp_path = None
         try:
-            with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
-                f.write(result["wav_bytes"])
-                tmp_path = f.name
+            waveform = await run_in_threadpool(decode_audio, temp_path)
+        except AudioDecodeError as error:
+            raise HTTPException(status_code=400, detail=str(error))
 
-            classification = await classify_audio_file(tmp_path)
-        finally:
-            if tmp_path and os.path.exists(tmp_path):
-                os.remove(tmp_path)
-
-        # Run forensics analysis
-        embedding = classification.get("embedding", generate_synthetic_acoustic_embedding(scenario["threat_type"]))
-        forensics = analyze_acoustic_forensics(
-            classification.get("threat_type", scenario["threat_type"]),
-            classification.get("confidence", 0.90),
-            embedding
+        classifier = get_yamnet_classifier()
+        result, payloads = await run_in_threadpool(
+            simulate_audio_drop, classifier, waveform, node_list, source_lat, source_lon, loudness
         )
+    finally:
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
 
-        # Build cluster context
-        alert_dict = {
-            "id": f"sim-{scenario_id}",
-            "device_id": scenario["node_id"],
-            "threat_type": classification.get("threat_type", scenario["threat_type"]),
-            "latitude": scenario["location"]["lat"],
-            "longitude": scenario["location"]["lon"],
-            "confidence_score": classification.get("confidence", 0.90),
-            "timestamp": "simulation",
-        }
-        cluster = cluster_manager.process_alert(alert_dict)
+    alert_ids = {}
+    if send_alerts:
+        for payload in payloads:
+            saved = await persist_and_broadcast_alert(db, ThreatAlertCreate(**payload))
+            alert_ids[payload["device_id"]] = str(saved.id)
 
-        return {
-            "scenario_id": scenario_id,
-            "scenario": scenario,
-            "classification": classification,
-            "forensics": forensics,
-            "cluster": cluster,
-            "waveform_preview": result["waveform_preview"],
-        }
-    except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except Exception as e:
-        logger.error(f"Classification failed for scenario {scenario_id}: {e}")
-        raise HTTPException(status_code=500, detail=f"Classification error: {str(e)}")
+    for node in result["nodes"]:
+        node["alert_id"] = alert_ids.get(node["id"])
+    result["alerts_sent"] = len(alert_ids)
+    result["file_info"] = {"filename": filename, "size_bytes": len(contents)}
+
+    logger.info(
+        "Audio drop '%s': strongest node %s, %d alert(s) sent, model=%s",
+        filename, result["strongest_node"], len(alert_ids), result["model"],
+    )
+    return result

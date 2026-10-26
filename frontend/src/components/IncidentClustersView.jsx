@@ -145,10 +145,10 @@ export default function IncidentClustersView() {
 
                     <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', marginBottom: '0.5rem' }}>
                       <span className="brand-badge" style={{ fontSize: '0.62rem', background: 'rgba(31, 90, 58, 0.1)', color: 'var(--accent-cyan)', border: 'none' }}>
-                        {cluster.alert_count} alerts merged
+                        {cluster.alert_count} {cluster.alert_count === 1 ? 'alert' : 'alerts'} merged
                       </span>
                       <span className="brand-badge" style={{ fontSize: '0.62rem', background: 'rgba(46, 125, 79, 0.1)', color: 'var(--accent-emerald)', border: 'none' }}>
-                        {cluster.contributing_nodes.length} Sensors ({cluster.contributing_nodes.join(', ')})
+                        {cluster.contributing_nodes.length} {cluster.contributing_nodes.length === 1 ? 'sensor' : 'sensors'} ({cluster.contributing_nodes.join(', ')})
                       </span>
                     </div>
 
@@ -181,7 +181,7 @@ export default function IncidentClustersView() {
               <div style={{ padding: '0.8rem', background: '#f8faf7', borderRadius: 'var(--radius-sm)', border: '1px solid #dce2db' }}>
                 <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700, marginBottom: '0.2rem' }}>Location method</div>
                 <div style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--accent-blue)' }}>
-                  {({ TRIANGULATED: 'Triangulated from several sensors', SINGLE_NODE: 'Single sensor, approximate' })[selectedCluster.triangulation_status] || selectedCluster.triangulation_status.replace(/_/g, ' ').toLowerCase()}
+                  {({ TRIANGULATED: 'Triangulated from several sensors', SINGLE_NODE: 'Single sensor, approximate' })[selectedCluster.triangulation_status] || (selectedCluster.triangulation_status.charAt(0) + selectedCluster.triangulation_status.slice(1).toLowerCase()).replace(/_/g, ' ')}
                 </div>
               </div>
 
@@ -206,7 +206,7 @@ export default function IncidentClustersView() {
                   Recommended response
                 </span>
                 <p style={{ fontSize: '0.74rem', color: 'var(--text-primary)', margin: 0, lineHeight: 1.4 }}>
-                  Sensors confirmed continuous <strong>{threatLabel(selectedCluster.threat_type).toLowerCase()}</strong> activity. <strong>{selectedCluster.alert_count} alerts were merged into this one incident</strong>, so rangers get a single ticket instead of repeated alarms.
+                  Sensors confirmed continuous <strong>{threatLabel(selectedCluster.threat_type).toLowerCase()}</strong> activity. <strong>{selectedCluster.alert_count} {selectedCluster.alert_count === 1 ? 'alert was' : 'alerts were'} merged into this one incident</strong>, so rangers get a single ticket instead of repeated alarms.
                 </p>
               </div>
             </div>

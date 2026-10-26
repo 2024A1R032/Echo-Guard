@@ -50,12 +50,22 @@ void SimulationEngine::setupDefaultSwarm() {
     };
 
     std::vector<NodeDef> defaults = {
-        {"NODE-ALPHA",   -3.4653, -62.2159, 1.2},
-        {"NODE-BRAVO",   -3.4812, -62.1984, 1.5},
-        {"NODE-CHARLIE", -3.4501, -62.2341, 1.0},
-        {"NODE-DELTA",   -3.4735, -62.2510, 1.8},
-        {"NODE-ECHO",    -3.4920, -62.2215, 2.0},
-        {"NODE-FOXTROT", -3.4410, -62.1890, 1.2}
+        {"NODE-ALPHA",    -3.4530, -62.2200, 1.8},
+        {"NODE-JULIETT",  -3.4700, -62.2150, 1.8},
+        {"NODE-NOVEMBER", -3.4250, -62.2220, 1.8},
+        {"NODE-HOTEL",    -3.4350, -62.1980, 1.8},
+        {"NODE-INDIA",    -3.4360, -62.2460, 1.8},
+        {"NODE-CHARLIE",  -3.4520, -62.2400, 1.8},
+        {"NODE-FOXTROT",  -3.4460, -62.1800, 1.8},
+        {"NODE-GOLF",     -3.4620, -62.1700, 1.8},
+        {"NODE-KILO",     -3.4650, -62.2620, 1.8},
+        {"NODE-OSCAR",    -3.5100, -62.2100, 1.8},
+        {"NODE-DELTA",    -3.4780, -62.2530, 2.0},
+        {"NODE-LIMA",     -3.4920, -62.2420, 2.0},
+        {"NODE-ECHO",     -3.4930, -62.2180, 2.0},
+        {"NODE-BRAVO",    -3.4860, -62.1960, 2.0},
+        {"NODE-PAPA",     -3.4790, -62.1720, 2.0},
+        {"NODE-MIKE",     -3.5040, -62.1820, 2.0}
     };
 
     int countToCreate = std::min(m_config.nodeCount, static_cast<int>(defaults.size()));

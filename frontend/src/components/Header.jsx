@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useTelemetry } from '../context/TelemetryContext';
-import { Volume2, VolumeX, Bell, FlaskConical } from 'lucide-react';
+import { Volume2, VolumeX } from 'lucide-react';
+import DemoMenu from './DemoMenu';
 
 export default function Header({ title, description, onOpenDispatch }) {
-  const { wsConnected, audioEnabled, setAudioEnabled, testAlarmSound, triggerSimulationAlert } = useTelemetry();
+  const { wsConnected, audioEnabled, setAudioEnabled } = useTelemetry();
   const [currentTime, setCurrentTime] = useState(new Date().toUTCString().slice(17, 25));
-  const [testSent, setTestSent] = useState(false);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -13,13 +13,6 @@ export default function Header({ title, description, onOpenDispatch }) {
     }, 1000);
     return () => clearInterval(timer);
   }, []);
-
-  const handleTestAlert = () => {
-    setTestSent(true);
-    testAlarmSound();
-    triggerSimulationAlert('CHAINSAW', 'NODE-ALPHA', 0.98);
-    setTimeout(() => setTestSent(false), 1500);
-  };
 
   return (
     <header className="app-header">
@@ -29,26 +22,12 @@ export default function Header({ title, description, onOpenDispatch }) {
       </div>
 
       <div className="header-status-group">
-        <button
-          type="button"
-          className="btn-secondary"
-          onClick={handleTestAlert}
-          aria-label="Send test alert"
-          title="Play the alert sound and add a test chainsaw detection"
-        >
-          <Bell size={15} aria-hidden="true" />
-          <span>{testSent ? 'Test alert sent' : 'Send test alert'}</span>
-        </button>
+        <div className="status-pill" role="status">
+          <span className={`status-indicator ${wsConnected ? 'online' : 'offline'}`} aria-hidden="true" />
+          <span>{wsConnected ? 'Live' : 'Reconnecting'}</span>
+        </div>
 
-        <button
-          type="button"
-          className="btn-secondary"
-          onClick={onOpenDispatch}
-          aria-label="Simulate incident"
-        >
-          <FlaskConical size={15} aria-hidden="true" />
-          <span>Simulate incident</span>
-        </button>
+        <div className="status-pill is-clock">{currentTime} UTC</div>
 
         <button
           type="button"
@@ -61,12 +40,7 @@ export default function Header({ title, description, onOpenDispatch }) {
           {audioEnabled ? <Volume2 size={16} /> : <VolumeX size={16} />}
         </button>
 
-        <div className="status-pill" role="status">
-          <span className={`status-indicator ${wsConnected ? 'online' : 'offline'}`} aria-hidden="true" />
-          <span>{wsConnected ? 'Live' : 'Reconnecting'}</span>
-        </div>
-
-        <div className="status-pill is-clock">{currentTime} UTC</div>
+        <DemoMenu onOpenDispatch={onOpenDispatch} />
       </div>
     </header>
   );

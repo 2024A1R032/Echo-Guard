@@ -18,8 +18,13 @@ Pipeline:
 """
 
 import os
+import sys
 import csv
+import time
 import logging
+import platform
+import traceback
+import threading
 import numpy as np
 import soundfile as sf
 from typing import Dict, Any, List, Optional, Tuple
@@ -31,37 +36,53 @@ YAMNET_MODEL_URL = "https://tfhub.dev/google/yamnet/1"
 TARGET_SR = 16000  # YAMNet strictly requires 16 kHz
 
 # Domain threat mapping from YAMNet AudioSet classes
-THREAT_CLASS_MAPPING = {
+# Explosive/firearm classes are grouped so their probabilities are summed collectively for gunshot detection
+THREAT_CLASS_GROUPS: Dict[str, List[str]] = {
+    # Gunshots / Poaching Firearms / Explosives (Impulsive Threats - summed)
+    "GUNSHOT": [
+        "Gunshot, gunfire",
+        "Cap gun",
+        "Explosion",
+        "Firecracker",
+        "Fireworks",
+        "Artillery fire",
+        "Machine gun",
+        "Fusillade",
+        "Boom",
+    ],
     # Chainsaw / Deforestation
-    "Chainsaw": "CHAINSAW",
-    
-    # Gunshots / Poaching Firearms
-    "Gunshot, gunfire": "GUNSHOT",
-    "Cap gun": "GUNSHOT",
-    "Explosion": "GUNSHOT",
-    "Artillery fire": "GUNSHOT",
-    "Machine gun": "GUNSHOT",
-    "Fusillade": "GUNSHOT",
-    
+    "CHAINSAW": [
+        "Chainsaw",
+    ],
     # Marine / Waterway Sanctuary Breaches
-    "Motorboat, speedboat": "ILLEGAL_VESSEL",
-    "Boat, Water vehicle": "ILLEGAL_VESSEL",
-    "Ship": "ILLEGAL_VESSEL",
-    "Watercraft": "ILLEGAL_VESSEL",
-    
+    "ILLEGAL_VESSEL": [
+        "Motorboat, speedboat",
+        "Boat, Water vehicle",
+        "Ship",
+        "Watercraft",
+    ],
     # Unauthorized Vehicles / Logging Trucks
-    "Engine": "VEHICLE_ENGINE",
-    "Motor vehicle (road)": "VEHICLE_ENGINE",
-    "Truck": "VEHICLE_ENGINE",
-    "Car": "VEHICLE_ENGINE",
-    "Vehicle": "VEHICLE_ENGINE",
-    "Idling": "VEHICLE_ENGINE",
-    "Accelerating, revving, vroom": "VEHICLE_ENGINE",
-    "Internal combustion engine": "VEHICLE_ENGINE",
-    
+    "VEHICLE_ENGINE": [
+        "Engine",
+        "Motor vehicle (road)",
+        "Truck",
+        "Car",
+        "Vehicle",
+        "Idling",
+        "Accelerating, revving, vroom",
+        "Internal combustion engine",
+    ],
     # Destructive Fishing
-    "Burst, pop": "BLAST_FISHING",
-    "Boom": "BLAST_FISHING",
+    "BLAST_FISHING": [
+        "Burst, pop",
+    ],
+}
+
+# Flat lookup mapping for backwards compatibility
+THREAT_CLASS_MAPPING = {
+    class_name: threat_type
+    for threat_type, classes in THREAT_CLASS_GROUPS.items()
+    for class_name in classes
 }
 
 # 521 Standard AudioSet Class Labels for YAMNet
@@ -113,41 +134,215 @@ AUDIOSET_CLASSES_SAMPLE = [
 ]
 
 
+THREAT_MIN_CONFIDENCE = 0.45
+
+# Comprehensive AudioSet classes for nature, wildlife, weather, water, and ambient silence
+NATURE_AND_SILENCE_CLASSES = {
+    # Silence and background noise
+    "Silence",
+    "Noise",
+    "Environmental noise",
+    "Static",
+    "White noise",
+    "Pink noise",
+    "Field recording",
+    "Outside, rural or natural",
+    
+    # Natural elements, weather, water
+    "Wind",
+    "Rustling leaves",
+    "Wind noise (microphone)",
+    "Thunderstorm",
+    "Thunder",
+    "Water",
+    "Rain",
+    "Raindrop",
+    "Rain on surface",
+    "Stream",
+    "Waterfall",
+    "Ocean",
+    "Waves, surf",
+    "Steam",
+    "Gurgling",
+    "Fire",
+    "Crackle",
+    
+    # Birds and vocalizations
+    "Bird",
+    "Bird vocalization, bird call, bird song",
+    "Chirp, tweet",
+    "Squawk",
+    "Pigeon, dove",
+    "Coo",
+    "Crow",
+    "Caw",
+    "Owl",
+    "Hoot",
+    "Bird flight, flapping wings",
+    
+    # Animals, pets, livestock, wildlife
+    "Animal",
+    "Wild animals",
+    "Domestic animals, pets",
+    "Dog",
+    "Bark",
+    "Yip",
+    "Howl",
+    "Bow-wow",
+    "Growling",
+    "Whimper (dog)",
+    "Cat",
+    "Purr",
+    "Meow",
+    "Hiss",
+    "Caterwaul",
+    "Livestock, farm animals, working animals",
+    "Horse",
+    "Clip-clop",
+    "Neigh, whinny",
+    "Cattle, bovinae",
+    "Moo",
+    "Pig",
+    "Oink",
+    "Goat",
+    "Bleat",
+    "Sheep",
+    "Fowl",
+    "Chicken, rooster",
+    "Cluck",
+    "Crowing, cock-a-doodle-doo",
+    "Turkey",
+    "Gobble",
+    "Duck",
+    "Quack",
+    "Goose",
+    "Honk",
+    "Roaring cats (lions, tigers)",
+    "Roar",
+    "Canidae, dogs, wolves",
+    "Rodents, rats, mice",
+    "Mouse",
+    "Patter",
+    "Whale vocalization",
+    
+    # Insects and amphibians
+    "Insect",
+    "Cricket",
+    "Mosquito",
+    "Fly, housefly",
+    "Buzz",
+    "Bee, wasp, etc.",
+    "Frog",
+    "Croak",
+    "Snake",
+    "Rattle",
+}
+
+
+def is_nature_or_silence(class_name: str) -> bool:
+    """Return True if class_name belongs to nature, wildlife, weather, water, or silence/ambient sound."""
+    if not class_name:
+        return False
+    if class_name in NATURE_AND_SILENCE_CLASSES:
+        return True
+    lower = class_name.lower()
+    keywords = (
+        "bird", "animal", "wind", "rain", "silence", "water", "stream", 
+        "ocean", "thunder", "insect", "frog", "cricket"
+    )
+    return any(k in lower for k in keywords) and class_name not in THREAT_CLASS_MAPPING
+
+
 class YAMNetClassifier:
     """
     TensorFlow Hub YAMNet Model Wrapper.
     """
 
+    # After a failed load, do not try again for this long. Without this, every classification
+    # call would wait for the download to time out again.
+    RETRY_AFTER_SECONDS = 300
+
     def __init__(self):
         self._model = None
         self._class_names: List[str] = []
         self._is_loaded = False
+        self._lock = threading.Lock()
+        self._last_failure = 0.0
+        self.load_error: Optional[str] = None
 
     def _load_model(self):
         if self._is_loaded and self._model is not None:
             return
 
-        # Model storage directory
+        with self._lock:
+            if self._is_loaded and self._model is not None:
+                return
+            if self.load_error and (time.monotonic() - self._last_failure) < self.RETRY_AFTER_SECONDS:
+                return  # failed recently; stay on the fallback instead of waiting again
+            self._load_model_locked()
+
+    def _load_model_locked(self):
+        # Base project directories
         base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-        model_dir = os.path.join(base_dir, "ml_models", "yamnet")
+
+        # Verify candidate paths for YAMNet model weights
+        candidate_dirs = [
+            os.path.join(base_dir, "ml_models", "yamnet"),
+            os.path.join(os.getcwd(), "ml_models", "yamnet"),
+            os.path.join(os.getcwd(), "backend", "ml_models", "yamnet"),
+        ]
+        model_dir = None
+        for d in candidate_dirs:
+            if os.path.exists(os.path.join(d, "saved_model.pb")):
+                model_dir = os.path.abspath(d)
+                break
+        if not model_dir:
+            model_dir = os.path.abspath(os.path.join(base_dir, "ml_models", "yamnet"))
 
         try:
-            import tensorflow as tf
+            # Check and import TensorFlow (handling venv detection)
+            try:
+                import tensorflow as tf
+            except ImportError as tf_err:
+                # If running from outside venv, attempt to discover Python 3.11 venv site-packages
+                venv_site = os.path.join(base_dir, "venv", "Lib", "site-packages")
+                if os.path.exists(venv_site) and venv_site not in sys.path:
+                    sys.path.insert(0, venv_site)
+                try:
+                    import tensorflow as tf
+                except ImportError:
+                    print(
+                        f"\n[ECHO-GUARD CRITICAL] TensorFlow is not available in the active Python environment!\n"
+                        f"  Running Python:     {sys.executable} (Python {platform.python_version()})\n"
+                        f"  Virtual Env Path:   {os.path.join(base_dir, 'venv')}\n"
+                        f"  Exact Error:        {tf_err}\n"
+                        f"  Fix: Please launch EchoGuard using the Python 3.11 venv:\n"
+                        f"       .\\backend\\venv\\Scripts\\python.exe -m uvicorn app.main:app --reload --port 8000\n",
+                        file=sys.stderr,
+                        flush=True,
+                    )
+                    raise tf_err
+
             import requests
             import io
             import tarfile
 
-            # Download if not present locally
-            if not os.path.exists(model_dir) or not os.path.exists(os.path.join(model_dir, "saved_model.pb")):
-                logger.info(f"Downloading YAMNet bundle from {YAMNET_MODEL_URL}...")
+            # If model weights (saved_model.pb) are missing, download automatically
+            saved_model_pb = os.path.join(model_dir, "saved_model.pb")
+            if not os.path.exists(model_dir) or not os.path.exists(saved_model_pb):
+                msg = f"YAMNet model weights not found at {model_dir}. Downloading from {YAMNET_MODEL_URL}..."
+                logger.info(msg)
+                print(f"[ECHO-GUARD INFO] {msg}", flush=True)
                 os.makedirs(model_dir, exist_ok=True)
                 download_url = f"{YAMNET_MODEL_URL}?tf-hub-format=compressed"
-                resp = requests.get(download_url, headers={"User-Agent": "EchoGuard-Agent/1.0"}, timeout=30)
-                if resp.status_code == 200:
-                    tar = tarfile.open(fileobj=io.BytesIO(resp.content), mode="r:gz")
-                    tar.extractall(model_dir)
-                    tar.close()
-                    logger.info("YAMNet SavedModel extracted successfully.")
+                resp = requests.get(download_url, headers={"User-Agent": "EchoGuard-Agent/1.0"}, timeout=60)
+                if resp.status_code != 200:
+                    raise RuntimeError(f"YAMNet download failed with HTTP {resp.status_code} from {download_url}")
+                tar = tarfile.open(fileobj=io.BytesIO(resp.content), mode="r:gz")
+                tar.extractall(model_dir)
+                tar.close()
+                print(f"[ECHO-GUARD INFO] YAMNet SavedModel extracted successfully to {model_dir}.", flush=True)
+                logger.info("YAMNet SavedModel extracted successfully.")
 
             # Load SavedModel with pure TensorFlow
             logger.info(f"Loading YAMNet SavedModel from {model_dir}...")
@@ -170,79 +365,184 @@ class YAMNetClassifier:
 
             self._class_names = class_names
             self._is_loaded = True
+            self.load_error = None
             logger.info(f"YAMNet successfully loaded with {len(self._class_names)} classes.")
+            print(f"[ECHO-GUARD INFO] Real YAMNet successfully loaded from {model_dir} ({len(self._class_names)} classes).", flush=True)
         except Exception as e:
-            logger.warning(f"Could not load YAMNet SavedModel: {e}. Using resilient local acoustic model.")
+            self.load_error = f"{type(e).__name__}: {e}"
+            self._last_failure = time.monotonic()
+            logger.error(f"Could not load YAMNet SavedModel: {self.load_error}. Using resilient local acoustic model.", exc_info=True)
+            print(f"\n[ECHO-GUARD ERROR] Failed to load YAMNet SavedModel: {self.load_error}", file=sys.stderr, flush=True)
+            print(f"                 Active Python: {sys.executable} (version {platform.python_version()})", file=sys.stderr, flush=True)
+            print(f"                 Model Directory Checked: {model_dir}", file=sys.stderr, flush=True)
+            print("                 Falling back to resilient signal heuristic model.\n", file=sys.stderr, flush=True)
+            traceback.print_exc()
             self._class_names = AUDIOSET_CLASSES_SAMPLE
             self._is_loaded = False
 
-    def predict(self, waveform: np.ndarray) -> Dict[str, Any]:
+    def predict(self, waveform: Any) -> Dict[str, Any]:
         """
-        Run inference on 16kHz mono audio waveform.
+        Run inference on 16kHz mono audio waveform with peak scoring across 0.96s frames.
         """
         self._load_model()
 
-        # Ensure float32 and shape [N]
-        if waveform.dtype != np.float32:
-            waveform = waveform.astype(np.float32)
+        if isinstance(waveform, str):
+            waveform = load_audio_file(waveform, TARGET_SR)
+
+        waveform = np.asarray(waveform, dtype=np.float32)
         if waveform.ndim > 1:
             waveform = np.mean(waveform, axis=1)
+
+        # Pad to at least 1.0 second (16000 samples) if too short for YAMNet
+        if len(waveform) < TARGET_SR:
+            waveform = np.pad(waveform, (0, TARGET_SR - len(waveform)))
 
         # Normalize to [-1.0, 1.0]
         max_val = np.max(np.abs(waveform))
         if max_val > 0:
             waveform = waveform / max_val
 
+        # Check for silence
+        rms_val = float(np.sqrt(np.mean(waveform ** 2)))
+        is_silence = rms_val < 0.001
+
         used_real_model = False
-        if self._is_loaded and self._model is not None:
+        if not is_silence and self._is_loaded and self._model is not None:
             try:
                 import tensorflow as tf
                 # YAMNet accepts 1D float32 tensor
                 waveform_tensor = tf.convert_to_tensor(waveform, dtype=tf.float32)
                 scores, embeddings, log_mel = self._model(waveform_tensor)
-                scores_np = scores.numpy()          # [N, 521]
+                scores_np = scores.numpy()          # [N, 521] - 0.96s frames with 0.48s hop
                 embeddings_np = embeddings.numpy()  # [N, 1024]
                 log_mel_np = log_mel.numpy()        # [M, 64]
 
-                # Frame-level mean score across time windows
-                mean_scores = np.mean(scores_np, axis=0)
-                mean_embedding = np.mean(embeddings_np, axis=0) # 1024-dim
+                if scores_np.ndim == 1:
+                    scores_np = np.expand_dims(scores_np, axis=0)
+                if embeddings_np.ndim == 1:
+                    embeddings_np = np.expand_dims(embeddings_np, axis=0)
+
                 used_real_model = True
             except Exception as e:
                 logger.warning(f"YAMNet tensor inference failed: {e}. Falling back to DSP heuristic.")
-                mean_scores, mean_embedding, log_mel_np = self._fallback_dsp_inference(waveform)
+                scores_np, embeddings_np, log_mel_np = self._fallback_dsp_inference(waveform)
         else:
-            mean_scores, mean_embedding, log_mel_np = self._fallback_dsp_inference(waveform)
+            scores_np, embeddings_np, log_mel_np = self._fallback_dsp_inference(waveform)
 
-        # Map predictions to EchoGuard threat categories
+        if scores_np.ndim == 1:
+            scores_np = np.expand_dims(scores_np, axis=0)
+        if embeddings_np.ndim == 1:
+            embeddings_np = np.expand_dims(embeddings_np, axis=0)
+
+        num_frames = scores_np.shape[0]
+
+        # Calculate per-threat frame scores using maximum probability among related classes.
+        # Avoid summing probabilities which artificially inflates confidence scores up to 100% (1.0).
+        category_frame_scores: Dict[str, np.ndarray] = {}
+        for threat_type, classes in THREAT_CLASS_GROUPS.items():
+            indices = [
+                idx for idx, name in enumerate(self._class_names)
+                if name in classes and idx < scores_np.shape[1]
+            ]
+            if indices:
+                # Raw peak probability across constituent classes within each 0.96-second frame
+                category_frame_scores[threat_type] = np.max(scores_np[:, indices], axis=1)
+            else:
+                category_frame_scores[threat_type] = np.zeros(num_frames, dtype=np.float32)
+
+        # Peak vs. Average Scoring:
+        # Instead of averaging scores across all time frames (which severely dilutes short impulsive
+        # sounds like gunshot), extract the maximum peak value (np.max) across the 0.96-second frames.
+        matched_threats: Dict[str, float] = {}
+        threat_peak_times: Dict[str, float] = {}
+        for threat_type, frame_scores in category_frame_scores.items():
+            if len(frame_scores) > 0:
+                peak_score = float(np.max(frame_scores))
+                peak_frame = int(np.argmax(frame_scores))
+                matched_threats[threat_type] = min(1.0, peak_score)
+                threat_peak_times[threat_type] = round(peak_frame * 0.48, 2)
+            else:
+                matched_threats[threat_type] = 0.0
+                threat_peak_times[threat_type] = 0.0
+
+        # Class probabilities using peak score per class
+        peak_scores_per_class = np.max(scores_np, axis=0)
         class_probs: Dict[str, float] = {}
-        matched_threats: Dict[str, float] = {
-            "CHAINSAW": 0.0,
-            "GUNSHOT": 0.0,
-            "ILLEGAL_VESSEL": 0.0,
-            "VEHICLE_ENGINE": 0.0,
-            "BLAST_FISHING": 0.0,
-        }
-
         for idx, class_name in enumerate(self._class_names):
-            if idx < len(mean_scores):
-                score = float(mean_scores[idx])
-                if class_name in THREAT_CLASS_MAPPING:
-                    threat_cat = THREAT_CLASS_MAPPING[class_name]
-                    matched_threats[threat_cat] = max(matched_threats[threat_cat], score)
-                    class_probs[class_name] = round(score, 4)
+            if idx < len(peak_scores_per_class) and class_name in THREAT_CLASS_MAPPING:
+                class_probs[class_name] = round(float(peak_scores_per_class[idx]), 4)
 
-        # Determine top mapped threat
-        top_threat = max(matched_threats.items(), key=lambda x: x[1])
-        if top_threat[1] >= 0.15:
-            threat_type = top_threat[0]
-            confidence = top_threat[1]
+        # 1. Global Top-Class Check:
+        # Before processing threat labels, find the absolute highest score across all 521 YAMNet classes.
+        # If the top predicted class belongs to nature or silence (e.g., 'Bird', 'Animal', 'Wind', 'Rain', 'Silence'),
+        # immediately discard the detection and return none.
+        silence_idx = self._class_names.index("Silence") if "Silence" in self._class_names else -1
+        if silence_idx >= 0 and scores_np.shape[0] > 1:
+            non_silent_mask = scores_np[:, silence_idx] < 0.80
+            active_scores = scores_np[non_silent_mask] if np.any(non_silent_mask) else scores_np
         else:
-            threat_type = "UNKNOWN"
-            confidence = max(0.20, float(np.max(mean_scores))) if len(mean_scores) > 0 else 0.50
+            active_scores = scores_np
+
+        active_peaks = np.max(active_scores, axis=0) if len(active_scores) > 0 else peak_scores_per_class
+        global_top_idx = int(np.argmax(active_peaks)) if len(active_peaks) > 0 else 0
+        global_top_class = self._class_names[global_top_idx] if global_top_idx < len(self._class_names) else ""
+        global_top_score = float(active_peaks[global_top_idx]) if len(active_peaks) > 0 else 0.0
+
+        is_nature_discard = is_nature_or_silence(global_top_class)
+
+        # Disambiguate overlapping vehicle and marine vessel labels.
+        # In AudioSet, 'Vehicle' and 'Engine' are parent classes that encompass watercraft,
+        # which can cause motorboats to also trigger generic vehicle/engine activations.
+        vessel_specific_classes = {
+            "Motorboat, speedboat",
+            "Boat, Water vehicle",
+            "Ship",
+            "Watercraft",
+        }
+        road_vehicle_classes = {
+            "Motor vehicle (road)",
+            "Truck",
+            "Car",
+        }
+        vessel_peak = max((class_probs.get(c, 0.0) for c in vessel_specific_classes), default=0.0)
+        road_peak = max((class_probs.get(c, 0.0) for c in road_vehicle_classes), default=0.0)
+
+        if vessel_peak >= THREAT_MIN_CONFIDENCE and vessel_peak >= road_peak:
+            # Marine vessel signature identified; prevent generic engine/vehicle from overriding
+            if matched_threats.get("VEHICLE_ENGINE", 0.0) > vessel_peak:
+                matched_threats["VEHICLE_ENGINE"] = road_peak
+        elif road_peak > vessel_peak and road_peak >= THREAT_MIN_CONFIDENCE:
+            # Road vehicle signature identified; prevent low boat noise from overriding
+            if matched_threats.get("ILLEGAL_VESSEL", 0.0) > 0.0:
+                matched_threats["ILLEGAL_VESSEL"] = vessel_peak
+
+        # 2. Hard Confidence Threshold:
+        # Stop using a relative argmax among just the threat classes.
+        # Do not trigger a threat alert unless the aggregated probability for that specific threat
+        # (vehicle, gunshot, chainsaw, or vessel) strictly exceeds a 0.45 (45%) minimum threshold.
+        # If all threat scores are below this float value, default to none.
+        if is_silence or is_nature_discard:
+            threat_type = None
+            confidence = 0.0
+            peak_time_s = 0.0
+        else:
+            qualified_threats = {
+                t: score for t, score in matched_threats.items()
+                if score > THREAT_MIN_CONFIDENCE
+            }
+            if qualified_threats:
+                top_threat = max(qualified_threats.items(), key=lambda x: x[1])
+                threat_type = top_threat[0]
+                confidence = top_threat[1]
+                peak_time_s = threat_peak_times.get(threat_type, 0.0)
+            else:
+                threat_type = None
+                confidence = 0.0
+                peak_time_s = 0.0
 
         # Create 128-dimensional unit-normalized embedding for pgvector compatibility
         # Block-pool 1024-dim down to 128-dim (8-to-1 average pooling)
+        mean_embedding = np.mean(embeddings_np, axis=0)
         if len(mean_embedding) == 1024:
             embedding_128 = mean_embedding.reshape(128, 8).mean(axis=1)
         elif len(mean_embedding) >= 128:
@@ -256,12 +556,25 @@ class YAMNetClassifier:
         else:
             embedding_128 = embedding_128.tolist()
 
+        # Top five classes across all AudioSet labels by peak score
+        top_indices = np.argsort(peak_scores_per_class)[::-1][:5]
+        top_classes = [
+            {"name": self._class_names[int(i)], "score": round(float(peak_scores_per_class[int(i)]), 4)}
+            for i in top_indices
+            if int(i) < len(self._class_names)
+        ]
+
         model_name = "Google YAMNet (TensorFlow Hub)" if used_real_model else "Fallback DSP Heuristic (YAMNet unavailable)"
+
+        category_scores = {k: round(float(v), 4) for k, v in matched_threats.items()}
 
         return {
             "threat_type": threat_type,
             "confidence": round(float(confidence), 4),
+            "at_s": peak_time_s,
+            "category_scores": category_scores,
             "class_probabilities": class_probs,
+            "top_classes": top_classes,
             "embedding": embedding_128,
             "mel_spectrogram": log_mel_np[:32].tolist() if len(log_mel_np) > 0 else [],
             "spectral_analysis": self._compute_spectral_metrics(waveform, TARGET_SR),
@@ -377,28 +690,38 @@ def get_classifier():
     return get_yamnet_classifier(), None
 
 
+def load_audio_file(filepath: str, target_sr: int = TARGET_SR) -> np.ndarray:
+    """
+    On-the-fly audio loading and resampling strictly to 16 kHz mono float32.
+    Uses librosa.load(path, sr=16000, mono=True) to ensure all incoming audio files
+    are strictly converted to 16 kHz mono before passing them to the YAMNet model.
+    """
+    try:
+        import librosa
+        waveform, _ = librosa.load(filepath, sr=target_sr, mono=True)
+        return waveform.astype(np.float32)
+    except Exception as e:
+        logger.warning(f"librosa.load failed for {filepath}: {e}, falling back to soundfile/scipy")
+        try:
+            import soundfile as sf
+            data, sr = sf.read(filepath)
+            data = np.asarray(data, dtype=np.float32)
+            if data.ndim > 1:
+                data = np.mean(data, axis=1)
+            if sr != target_sr:
+                import scipy.signal
+                num_samples = int(len(data) * float(target_sr) / sr)
+                data = scipy.signal.resample(data, num_samples)
+            return data.astype(np.float32)
+        except Exception as sf_err:
+            raise RuntimeError(f"Could not load and resample audio file {filepath}: {sf_err}")
+
+
 async def classify_audio_file(filepath: str) -> Dict[str, Any]:
     """
     Asynchronously classify an audio file using YAMNet.
+    Ensures strict on-the-fly resampling to 16kHz mono.
     """
-    # Load audio using soundfile / scipy
-    try:
-        data, sr = sf.read(filepath)
-    except Exception:
-        import librosa
-        data, sr = librosa.load(filepath, sr=TARGET_SR)
-
-    # Convert to 16kHz mono if needed
-    if sr != TARGET_SR:
-        try:
-            import scipy.signal
-            num_samples = int(len(data) * float(TARGET_SR) / sr)
-            data = scipy.signal.resample(data, num_samples)
-        except Exception:
-            pass
-
-    if len(data.shape) > 1:
-        data = np.mean(data, axis=1)
-
+    waveform = load_audio_file(filepath, TARGET_SR)
     classifier = get_yamnet_classifier()
-    return classifier.predict(data)
+    return classifier.predict(waveform)

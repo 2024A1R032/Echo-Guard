@@ -3,6 +3,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from typing import List
 import json
+import logging
+import uuid
+from datetime import datetime, timezone
+
+logger = logging.getLogger(__name__)
 
 from app.db.database import get_db
 from app.models.alert import ThreatAlert
@@ -39,18 +44,16 @@ class TelemetryConnectionManager:
 
 manager = TelemetryConnectionManager()
 
-@router.post("/", response_model=ThreatAlertResponse, status_code=status.HTTP_201_CREATED)
-async def create_telemetry_alert(
-    alert_in: ThreatAlertCreate,
-    db: AsyncSession = Depends(get_db)
-):
+async def persist_and_broadcast_alert(db: AsyncSession, alert_in: ThreatAlertCreate) -> ThreatAlert:
     """
-    Receive telemetry from C++ edge nodes, validate acoustic signature, and persist to database.
+    Validate, store, fuse and broadcast one alert.
+    Shared by the telemetry endpoint and the audio-drop simulation, so both follow
+    exactly the same path.
     """
     # 1. External ML Inference logic (Business logic)
     await analyze_threat_signature(
-        latitude=alert_in.latitude, 
-        longitude=alert_in.longitude, 
+        latitude=alert_in.latitude,
+        longitude=alert_in.longitude,
         confidence_score=alert_in.confidence_score,
         threat_type=alert_in.threat_type
     )
@@ -69,10 +72,15 @@ async def create_telemetry_alert(
         confidence_score=alert_in.confidence_score,
         embedding=embedding
     )
-    
-    db.add(new_alert)
-    await db.commit()
-    await db.refresh(new_alert)
+
+    try:
+        db.add(new_alert)
+        await db.commit()
+        await db.refresh(new_alert)
+    except Exception as db_err:
+        logger.warning("Database unavailable for persistence, falling back to memory/live stream: %s", db_err)
+        new_alert.id = uuid.uuid4()
+        new_alert.timestamp = datetime.now(timezone.utc)
 
     # 4. Multi-Sensor Spatial-Temporal Fusion & Deduplication
     alert_dict = {
@@ -86,7 +94,7 @@ async def create_telemetry_alert(
     }
     cluster = cluster_manager.process_alert(alert_dict)
     forensics = analyze_acoustic_forensics(new_alert.threat_type, new_alert.confidence_score, embedding)
-    
+
     # 5. Broadcast to live connected clients/dashboards
     alert_response = ThreatAlertResponse.model_validate(new_alert)
     broadcast_data = json.loads(alert_response.model_dump_json())
@@ -96,6 +104,16 @@ async def create_telemetry_alert(
 
     return new_alert
 
+@router.post("/", response_model=ThreatAlertResponse, status_code=status.HTTP_201_CREATED)
+async def create_telemetry_alert(
+    alert_in: ThreatAlertCreate,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Receive telemetry from C++ edge nodes, validate acoustic signature, and persist to database.
+    """
+    return await persist_and_broadcast_alert(db, alert_in)
+
 @router.get("/", response_model=List[ThreatAlertResponse])
 async def get_recent_alerts(
     limit: int = 100,
@@ -104,10 +122,14 @@ async def get_recent_alerts(
     """
     Retrieve latest threat alerts ordered by timestamp descending.
     """
-    stmt = select(ThreatAlert).order_by(ThreatAlert.timestamp.desc()).limit(limit)
-    result = await db.execute(stmt)
-    alerts = result.scalars().all()
-    return alerts
+    try:
+        stmt = select(ThreatAlert).order_by(ThreatAlert.timestamp.desc()).limit(limit)
+        result = await db.execute(stmt)
+        alerts = result.scalars().all()
+        return alerts
+    except Exception as err:
+        logger.warning("Could not fetch alerts from database: %s", err)
+        return []
 
 @router.post("/search", response_model=List[ThreatAlertSearchResult])
 async def search_similar_threats(
@@ -117,24 +139,28 @@ async def search_similar_threats(
     """
     Perform pgvector cosine similarity search against stored acoustic threat embeddings.
     """
-    cosine_distance = ThreatAlert.embedding.cosine_distance(query_in.query_embedding).label("distance")
-    stmt = (
-        select(ThreatAlert, cosine_distance)
-        .where(ThreatAlert.embedding.is_not(None))
-        .order_by(cosine_distance)
-        .limit(query_in.limit)
-    )
-    
-    result = await db.execute(stmt)
-    matches = result.all()
-    
-    search_results = []
-    for alert, dist in matches:
-        data = ThreatAlertResponse.model_validate(alert).model_dump()
-        data["distance"] = round(dist, 6) if dist is not None else None
-        search_results.append(data)
+    try:
+        cosine_distance = ThreatAlert.embedding.cosine_distance(query_in.query_embedding).label("distance")
+        stmt = (
+            select(ThreatAlert, cosine_distance)
+            .where(ThreatAlert.embedding.is_not(None))
+            .order_by(cosine_distance)
+            .limit(query_in.limit)
+        )
         
-    return search_results
+        result = await db.execute(stmt)
+        matches = result.all()
+        
+        search_results = []
+        for alert, dist in matches:
+            data = ThreatAlertResponse.model_validate(alert).model_dump()
+            data["distance"] = round(dist, 6) if dist is not None else None
+            search_results.append(data)
+            
+        return search_results
+    except Exception as err:
+        logger.warning("Could not perform vector search from database: %s", err)
+        return []
 
 @router.websocket("/ws")
 async def websocket_telemetry_feed(websocket: WebSocket):
