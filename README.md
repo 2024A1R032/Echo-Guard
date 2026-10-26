@@ -38,38 +38,35 @@ Protected ecosystems like the Amazon Rainforest Basin face continuous threats fr
 
 ```mermaid
 flowchart TD
-    subgraph EdgeLayer["📡 Edge Sensing Layer"]
-        A["📡 C++ Edge Node Fleet\n(WinSock2, Battery/Solar Models, Telemetry Ingest)"]
-        A2["🌲 Forest Drop Simulator\n(Physical Sound Wave Attenuation & Pink Noise SNR)"]
+    subgraph Edge Layer
+        A["📡 C++ Edge Node Fleet\n(WinSock2, Battery Models, Telemetry Ingest)"]
+        A2["🌲 Forest Drop Simulator\n(Physical Sound Wave Attenuation & SNR)"]
     end
 
-    subgraph BackendServices["⚡ Core Backend Services (FastAPI + AsyncIO)"]
-        B["⚡ FastAPI Gateway\n(Async HTTP + WebSockets Pub/Sub)"]
-        Y["🧠 Google YAMNet Engine\n(16kHz Mono Inference, 521 AudioSet Classes, 128-dim Embeddings)"]
-        F["📍 Spatial-Temporal Fusion Engine\n(Haversine Multi-Node Triangulation & Deduplication)"]
-        L["🤖 LangGraph Multi-Agent Pipeline\n(StateGraph: Context ➔ Correlate ➔ LLM Reasoning ➔ Dispatch Dossier)"]
+    subgraph Backend Services
+        B["⚡ FastAPI Gateway\n(Async HTTP & WebSockets Pub/Sub)"]
+        Y["🧠 Google YAMNet Engine\n(16kHz Inference, 521 Classes, 128-dim Embeddings)"]
+        F["📍 Spatial-Temporal Fusion Engine\n(Haversine Multi-Node Triangulation)"]
+        L["🤖 LangGraph Multi-Agent Pipeline\n(StateGraph: Context to Correlate to Dossier)"]
     end
 
-    subgraph StorageLayer["🗄️ Storage & Vector Search"]
-        C["🗄️ PostgreSQL + pgvector\n(128-dim Cosine Distance Acoustic Indexing)"]
+    subgraph Storage & Vector Search
+        C["🗄️ PostgreSQL + pgvector\n(128-dim Cosine Distance Indexing)"]
         M["💾 In-Memory Cluster Cache\n(Active Threat Correlation Window)"]
     end
 
-    subgraph FrontendApp["🖥️ Tactical Command Console (React + Vite)"]
-        D1["🧭 360° Tactical Radar & Spectrogram Analyzer"]
-        D2["🗺️ Leaflet Geospatial GIS (Satellite / Dark Canvas)"]
-        D3["🌲 Interactive 2D Forest Drop Canvas"]
-        D4["📊 Sensor Swarm Fleet & Vector Search Console"]
+    subgraph Frontend Tactical Console
+        D["🖥️ React.js Tactical Dashboard\n(360 Radar, Spectrogram, GIS Map, Swarm Metrics)"]
     end
 
-    A -->|HTTP POST Telemetry| B
-    A2 -->|Acoustic Drop Multi-part| B
-    B <-->|16kHz Audio Stream / Logits| Y
-    B <-->|Spatial Clustering (650m / 90s)| F
-    F <-->|Merged Active Incidents| M
-    B <-->|Dossier Synthesis| L
-    B <-->|128-dim Vector Similarity Search| C
-    B -->|WebSocket Pub/Sub Live Alerts| FrontendApp
+    A -->|HTTP Telemetry POST| B
+    A2 -->|Audio Drop File Upload| B
+    B <-->|16kHz Audio Waveform| Y
+    B <-->|Spatial Clustering & Dedup| F
+    F <-->|Active Incident Cache| M
+    B <-->|Multi-Agent Dossier Gen| L
+    B <-->|128-dim Vector Cosine Search| C
+    B -->|WebSocket Pub/Sub Stream| D
 ```
 
 ---
